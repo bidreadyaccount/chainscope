@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: chainscope
+          POSTGRES_PASSWORD: chainscope
+          POSTGRES_DB: chainscope
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U chainscope" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://chainscope:chainscope@localhost:5432/chainscope
+      REDIS_URL: redis://localhost:6379
+      DATA_MODE: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm --filter @chainscope/database exec prisma migrate deploy
+      - run: pnpm db:seed
+      - run: pnpm -r typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test
+      - run: pnpm --filter @chainscope/web build
