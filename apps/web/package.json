@@ -2,14 +2,29 @@
   "name": "@chainscope/web",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "description": "Next.js App Router frontend (Phase 5).",
   "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
   "dependencies": {
     "@chainscope/config": "workspace:*",
-    "@chainscope/shared": "workspace:*"
+    "@chainscope/shared": "workspace:*",
+    "@tanstack/react-query": "5.62.11",
+    "lightweight-charts": "4.2.0",
+    "lucide-react": "0.469.0",
+    "next": "15.1.6",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.17"
   }
 }
