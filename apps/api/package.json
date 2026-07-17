@@ -4,13 +4,31 @@
   "private": true,
   "type": "module",
   "description": "Fastify REST + WebSocket server (Phase 3).",
+  "main": "./src/server.ts",
   "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "lint": "eslint ."
   },
   "dependencies": {
     "@chainscope/config": "workspace:*",
     "@chainscope/database": "workspace:*",
-    "@chainscope/shared": "workspace:*"
+    "@chainscope/shared": "workspace:*",
+    "@fastify/cors": "11.3.0",
+    "@fastify/helmet": "13.1.0",
+    "@fastify/rate-limit": "11.1.0",
+    "@fastify/swagger": "9.8.1",
+    "@fastify/swagger-ui": "6.1.0",
+    "@fastify/websocket": "11.3.0",
+    "fastify": "5.10.0",
+    "fastify-plugin": "5.1.0",
+    "ioredis": "5.11.1",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.1",
+    "ws": "8.21.1"
   }
 }

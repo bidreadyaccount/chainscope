@@ -33,3 +33,7 @@ pnpm-debug.log*
 .idea/
 .vscode/
 *.swp
+
+# Redis dump (created by local redis-server persistence)
+dump.rdb
+*.rdb
