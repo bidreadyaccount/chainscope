@@ -20,7 +20,9 @@ function strong(overrides: Partial<SmartMoneyInput> = {}): SmartMoneyInput {
 
 describe('scoreSmartMoney — sample-size gate (SPEC §8)', () => {
   it(`fewer than ${SMART_MONEY_MIN_SAMPLE_SIZE} closed positions → score 0, status None`, () => {
-    const r = scoreSmartMoney(strong({ closedPositions: SMART_MONEY_MIN_SAMPLE_SIZE - 1, winningPositions: 3 }));
+    const r = scoreSmartMoney(
+      strong({ closedPositions: SMART_MONEY_MIN_SAMPLE_SIZE - 1, winningPositions: 3 }),
+    );
     expect(r.sampleSizeMet).toBe(false);
     expect(r.score).toBe(0);
     expect(r.status).toBe('None');
@@ -28,7 +30,9 @@ describe('scoreSmartMoney — sample-size gate (SPEC §8)', () => {
   });
 
   it(`exactly ${SMART_MONEY_MIN_SAMPLE_SIZE} closed positions meets the gate`, () => {
-    const r = scoreSmartMoney(strong({ closedPositions: SMART_MONEY_MIN_SAMPLE_SIZE, winningPositions: 5 }));
+    const r = scoreSmartMoney(
+      strong({ closedPositions: SMART_MONEY_MIN_SAMPLE_SIZE, winningPositions: 5 }),
+    );
     expect(r.sampleSizeMet).toBe(true);
     expect(r.score).toBeGreaterThan(0);
   });
@@ -73,7 +77,9 @@ describe('scoreSmartMoney — status tiers', () => {
 
 describe('scoreSmartMoney — component math', () => {
   it('win rate = winning / closed', () => {
-    const r = scoreSmartMoney(strong({ closedPositions: 8, winningPositions: 6, losingPositions: 2 }));
+    const r = scoreSmartMoney(
+      strong({ closedPositions: 8, winningPositions: 6, losingPositions: 2 }),
+    );
     expect(r.winRate).toBeCloseTo(0.75, 10);
   });
 

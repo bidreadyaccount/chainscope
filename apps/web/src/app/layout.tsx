@@ -18,8 +18,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <NavBar />
           <main className="mx-auto max-w-[1400px] px-4 py-5">{children}</main>
           <footer className="mx-auto max-w-[1400px] px-4 pb-8 pt-4 text-xs text-muted">
-            ChainScope is read-only analytics and decision support, not financial advice. Scores
-            and wallet labels are model outputs with stated confidence — verify before acting.
+            ChainScope is read-only analytics and decision support, not financial advice. Scores and
+            wallet labels are model outputs with stated confidence — verify before acting.
           </footer>
         </Providers>
       </body>

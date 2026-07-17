@@ -17,7 +17,10 @@ export function PriceChart({ trades }: { trades: Trade[] }) {
 
   const points = trades
     .filter((t) => t.priceUsd !== null)
-    .map((t) => ({ time: Math.floor(new Date(t.blockTimestamp).getTime() / 1000), value: t.priceUsd as number }))
+    .map((t) => ({
+      time: Math.floor(new Date(t.blockTimestamp).getTime() / 1000),
+      value: t.priceUsd as number,
+    }))
     .sort((a, b) => a.time - b.time)
     // lightweight-charts requires strictly ascending times — collapse duplicates.
     .filter((p, i, arr) => i === 0 || p.time > (arr[i - 1]?.time ?? 0));
@@ -52,10 +55,12 @@ export function PriceChart({ trades }: { trades: Trade[] }) {
       chartRef.current = null;
     };
     // Re-create when the underlying data identity changes (deliberate narrow dep).
-  }, [points.length === 0 ? 'empty' : points[0]?.time, points.length]);  
+  }, [points.length === 0 ? 'empty' : points[0]?.time, points.length]);
 
   if (points.length === 0) {
-    return <EmptyState message="Insufficient pricing data — no confidently priced trades to chart." />;
+    return (
+      <EmptyState message="Insufficient pricing data — no confidently priced trades to chart." />
+    );
   }
   return <div ref={ref} className="w-full" />;
 }

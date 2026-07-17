@@ -8,7 +8,10 @@ let app: FastifyInstance;
 let firstToken: string;
 let firstWallet: string;
 
-async function json(path: string, method: 'GET' | 'POST' | 'DELETE' = 'GET'): Promise<{
+async function json(
+  path: string,
+  method: 'GET' | 'POST' | 'DELETE' = 'GET',
+): Promise<{
   status: number;
   body: Record<string, unknown>;
 }> {
@@ -44,7 +47,10 @@ describe('GET system endpoints', () => {
     const { status, body } = await json('/api/v1/status');
     expect(status).toBe(200);
     expect(body.mode).toBe('demo');
-    const datastores = body.datastores as { database: { status: string }; redis: { status: string } };
+    const datastores = body.datastores as {
+      database: { status: string };
+      redis: { status: string };
+    };
     expect(datastores.database.status).toBe('ok');
     expect(datastores.redis.status).toBe('ok');
   });

@@ -16,35 +16,43 @@ const holdersQuerySchema = z.object({
 });
 
 export const tokenRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/tokens', { schema: { tags: ['tokens'], summary: 'Ranked token list' } }, async (req) => {
-    const q = parseOrThrow(tokenListQuerySchema, req.query, 'query');
-    let sort: TokenSortKey = 'opportunityScore';
-    if (q.sort !== undefined) {
-      if (!isTokenSortKey(q.sort)) {
-        throw validationError('Invalid query', [
-          { path: 'sort', message: `sort must be one of: ${TOKEN_SORT_KEYS.join(', ')}` },
-        ]);
+  app.get(
+    '/tokens',
+    { schema: { tags: ['tokens'], summary: 'Ranked token list' } },
+    async (req) => {
+      const q = parseOrThrow(tokenListQuerySchema, req.query, 'query');
+      let sort: TokenSortKey = 'opportunityScore';
+      if (q.sort !== undefined) {
+        if (!isTokenSortKey(q.sort)) {
+          throw validationError('Invalid query', [
+            { path: 'sort', message: `sort must be one of: ${TOKEN_SORT_KEYS.join(', ')}` },
+          ]);
+        }
+        sort = q.sort;
       }
-      sort = q.sort;
-    }
-    return app.services.tokens.list({
-      window: q.window,
-      ...(q.search !== undefined ? { search: q.search } : {}),
-      ...(q.walletClass !== undefined ? { walletClass: q.walletClass } : {}),
-      sort,
-      order: q.order,
-      limit: q.limit,
-      ...(q.cursor !== undefined ? { cursor: q.cursor } : {}),
-    });
-  });
+      return app.services.tokens.list({
+        window: q.window,
+        ...(q.search !== undefined ? { search: q.search } : {}),
+        ...(q.walletClass !== undefined ? { walletClass: q.walletClass } : {}),
+        sort,
+        order: q.order,
+        limit: q.limit,
+        ...(q.cursor !== undefined ? { cursor: q.cursor } : {}),
+      });
+    },
+  );
 
-  app.get('/tokens/:address', { schema: { tags: ['tokens'], summary: 'Token detail' } }, async (req) => {
-    const { address } = parseOrThrow(tokenParamSchema, req.params, 'params');
-    const { window } = parseOrThrow(windowQuerySchema, req.query, 'query');
-    const detail = await app.services.tokens.detail(address, window);
-    if (!detail) throw notFound(`Token ${address} not found`);
-    return detail;
-  });
+  app.get(
+    '/tokens/:address',
+    { schema: { tags: ['tokens'], summary: 'Token detail' } },
+    async (req) => {
+      const { address } = parseOrThrow(tokenParamSchema, req.params, 'params');
+      const { window } = parseOrThrow(windowQuerySchema, req.query, 'query');
+      const detail = await app.services.tokens.detail(address, window);
+      if (!detail) throw notFound(`Token ${address} not found`);
+      return detail;
+    },
+  );
 
   app.get(
     '/tokens/:address/trades',
@@ -77,7 +85,12 @@ export const tokenRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/tokens/:address/score',
-    { schema: { tags: ['tokens'], summary: 'Opportunity + risk score with full breakdown + explanations' } },
+    {
+      schema: {
+        tags: ['tokens'],
+        summary: 'Opportunity + risk score with full breakdown + explanations',
+      },
+    },
     async (req) => {
       const { address } = parseOrThrow(tokenParamSchema, req.params, 'params');
       const { window } = parseOrThrow(windowQuerySchema, req.query, 'query');
@@ -89,7 +102,12 @@ export const tokenRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/tokens/:address/holders',
-    { schema: { tags: ['tokens'], summary: 'Top holders (from tracked positions) or honest unavailable shape' } },
+    {
+      schema: {
+        tags: ['tokens'],
+        summary: 'Top holders (from tracked positions) or honest unavailable shape',
+      },
+    },
     async (req) => {
       const { address } = parseOrThrow(tokenParamSchema, req.params, 'params');
       const { limit } = parseOrThrow(holdersQuerySchema, req.query, 'query');

@@ -63,8 +63,17 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
             <FlowText value={t.liquidityChangePct} text={` (${pct(t.liquidityChangePct)})`} />
           )}
         </span>
-        {t.isVerified ? <Badge tone="info">Verified contract</Badge> : <Badge tone="warn">Unverified contract</Badge>}
-        <a href={t.explorer.token} target="_blank" rel="noreferrer" className="text-xs text-info hover:underline">
+        {t.isVerified ? (
+          <Badge tone="info">Verified contract</Badge>
+        ) : (
+          <Badge tone="warn">Unverified contract</Badge>
+        )}
+        <a
+          href={t.explorer.token}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-info hover:underline"
+        >
           Explorer ↗
         </a>
         <div className="ml-auto flex items-center gap-2">
@@ -91,7 +100,11 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Recent trade prices">
-          {trades.isLoading ? <Skeleton rows={5} /> : <PriceChart trades={trades.data?.items ?? []} />}
+          {trades.isLoading ? (
+            <Skeleton rows={5} />
+          ) : (
+            <PriceChart trades={trades.data?.items ?? []} />
+          )}
         </Card>
 
         <Card
@@ -138,10 +151,17 @@ export default function TokenPage({ params }: { params: Promise<{ address: strin
                 ['Smart money', t.smartMoneyNetFlowUsd, 'Wallets with strong verified history'],
                 ['Retail', t.retailNetFlowUsd, 'Small-portfolio wallets'],
                 ['New wallets', t.newWalletNetFlowUsd, 'Wallets first seen within 7 days'],
-                ['Deployer-linked', t.deployerLinkedNetFlowUsd, 'Wallets linked to the token deployer — selling here is a risk signal'],
+                [
+                  'Deployer-linked',
+                  t.deployerLinkedNetFlowUsd,
+                  'Wallets linked to the token deployer — selling here is a risk signal',
+                ],
               ] as const
             ).map(([label, value, hint]) => (
-              <div key={label} className="flex items-center justify-between border-b border-edge/50 pb-2">
+              <div
+                key={label}
+                className="flex items-center justify-between border-b border-edge/50 pb-2"
+              >
                 <dt className="text-muted">
                   <Hint label={label} hint={hint} />
                 </dt>
@@ -198,7 +218,9 @@ function ScoreBreakdown({ data }: { data: TokenScore }) {
       </table>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-pos">Positive factors</h3>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-pos">
+            Positive factors
+          </h3>
           <ul className="space-y-1 text-[13px] text-bright/90">
             {data.explanations.positiveFactors.length === 0 ? (
               <li className="text-muted">None detected in this window.</li>
@@ -208,7 +230,9 @@ function ScoreBreakdown({ data }: { data: TokenScore }) {
           </ul>
         </div>
         <div>
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-warn">Risk factors</h3>
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-warn">
+            Risk factors
+          </h3>
           <ul className="space-y-1 text-[13px] text-bright/90">
             {data.explanations.riskFactors.length === 0 ? (
               <li className="text-muted">None detected in this window.</li>

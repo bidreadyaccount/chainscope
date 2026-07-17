@@ -136,12 +136,15 @@ export function computeTokenMetrics(input: TokenMetricsInput): TokenMetrics {
     const qw = WALLET_QUALITY_WEIGHTS[cls as WalletClassName] ?? 0.3;
     qualityWeightedSum += qw * vol;
   }
-  const walletQualityScore = totalVolume > 0 ? round((qualityWeightedSum / totalVolume) * 100, 2) : 0;
+  const walletQualityScore =
+    totalVolume > 0 ? round((qualityWeightedSum / totalVolume) * 100, 2) : 0;
 
   // Data confidence: price-coverage (avg confidence over priced trades) blended
   // with sample-size adequacy vs the configured minimum.
   const avgPriceConf = pricedTradeCount > 0 ? priceConfSum / pricedTradeCount : 0;
-  const sampleAdequacy = clamp01(trades.length / Math.max(1, METRICS_CONFIG.minTradesForConfidence));
+  const sampleAdequacy = clamp01(
+    trades.length / Math.max(1, METRICS_CONFIG.minTradesForConfidence),
+  );
   const dcw = DATA_CONFIDENCE_WEIGHTS;
   const dataConfidenceScore = round(
     dcw.priceCoverage * avgPriceConf + dcw.sampleSize * sampleAdequacy * 100,

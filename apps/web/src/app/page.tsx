@@ -35,14 +35,44 @@ const COLUMNS: Array<{ key: SortKey | null; label: string; hint?: string; align?
   { key: 'priceUsd', label: 'Price', align: 'right' },
   { key: 'liquidityUsd', label: 'Liquidity', align: 'right', hint: 'Pool liquidity in USD' },
   { key: 'buyVolumeUsd', label: 'Buys', align: 'right', hint: 'Buy volume in the selected window' },
-  { key: 'sellVolumeUsd', label: 'Sells', align: 'right', hint: 'Sell volume in the selected window' },
+  {
+    key: 'sellVolumeUsd',
+    label: 'Sells',
+    align: 'right',
+    hint: 'Sell volume in the selected window',
+  },
   { key: 'uniqueBuyers', label: 'Buyers', align: 'right', hint: 'Unique buying wallets' },
-  { key: 'whaleNetFlowUsd', label: 'Whale flow', align: 'right', hint: 'Whale net flow (buys − sells). Green = net buying.' },
-  { key: 'smartMoneyNetFlowUsd', label: 'Smart $', align: 'right', hint: 'Net flow from wallets with strong historical performance' },
+  {
+    key: 'whaleNetFlowUsd',
+    label: 'Whale flow',
+    align: 'right',
+    hint: 'Whale net flow (buys − sells). Green = net buying.',
+  },
+  {
+    key: 'smartMoneyNetFlowUsd',
+    label: 'Smart $',
+    align: 'right',
+    hint: 'Net flow from wallets with strong historical performance',
+  },
   { key: 'retailNetFlowUsd', label: 'Retail', align: 'right', hint: 'Retail-wallet net flow' },
-  { key: 'opportunityScore', label: 'Score', align: 'right', hint: 'Explainable 0–100 Opportunity Score. Click a token for the full breakdown.' },
-  { key: 'riskScore', label: 'Risk', align: 'right', hint: 'Separate 0–100 risk score from penalty factors' },
-  { key: 'dataConfidence', label: 'Conf', align: 'right', hint: 'Data-confidence: price-source quality and sample size' },
+  {
+    key: 'opportunityScore',
+    label: 'Score',
+    align: 'right',
+    hint: 'Explainable 0–100 Opportunity Score. Click a token for the full breakdown.',
+  },
+  {
+    key: 'riskScore',
+    label: 'Risk',
+    align: 'right',
+    hint: 'Separate 0–100 risk score from penalty factors',
+  },
+  {
+    key: 'dataConfidence',
+    label: 'Conf',
+    align: 'right',
+    hint: 'Data-confidence: price-source quality and sample size',
+  },
 ];
 
 export default function MarketPage() {
@@ -96,7 +126,11 @@ export default function MarketPage() {
           ))}
         </div>
         <label className="relative">
-          <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
+          <Search
+            size={13}
+            className="absolute left-2 top-1/2 -translate-y-1/2 text-muted"
+            aria-hidden
+          />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}

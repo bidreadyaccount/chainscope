@@ -51,7 +51,15 @@ describe('Pipeline.ingest — synthetic trade end-to-end', () => {
   beforeAll(async () => {
     await prisma.token.upsert({
       where: { id: TOKEN_ID },
-      create: { id: TOKEN_ID, chainId: ROBINHOOD_CHAIN_ID, address: TOKEN_ADDR, symbol: 'TST', name: 'Test Token', decimals: 18, isDemo: true },
+      create: {
+        id: TOKEN_ID,
+        chainId: ROBINHOOD_CHAIN_ID,
+        address: TOKEN_ADDR,
+        symbol: 'TST',
+        name: 'Test Token',
+        decimals: 18,
+        isDemo: true,
+      },
       update: {},
     });
     await prisma.wallet.upsert({
@@ -116,7 +124,9 @@ describe('Pipeline.ingest — synthetic trade end-to-end', () => {
     expect(opp.some((e) => e.address.toLowerCase() === TOKEN_ADDR.toLowerCase())).toBe(true);
 
     // A snapshot was persisted (forced on first recompute is throttled; here default snapshotDue is true).
-    const snap = await prisma.tokenScoreSnapshot.findFirst({ where: { tokenId: TOKEN_ID, window: '1h' } });
+    const snap = await prisma.tokenScoreSnapshot.findFirst({
+      where: { tokenId: TOKEN_ID, window: '1h' },
+    });
     expect(snap).not.toBeNull();
 
     // Envelopes published to Redis (allow pub/sub to deliver).

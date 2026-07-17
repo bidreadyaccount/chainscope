@@ -110,13 +110,21 @@ export class RankingsService {
       if (!view) continue;
       any = true;
       for (const category of RANKING_CATEGORIES) {
-        pipe.zadd(rankingKey(category, window), rankingValue(category, view.metrics, view.score), address);
+        pipe.zadd(
+          rankingKey(category, window),
+          rankingValue(category, view.metrics, view.score),
+          address,
+        );
       }
     }
     if (any) await pipe.exec();
   }
 
-  async read(category: RankingCategory, window: TimeWindow, limit: number): Promise<RankingEntry[]> {
+  async read(
+    category: RankingCategory,
+    window: TimeWindow,
+    limit: number,
+  ): Promise<RankingEntry[]> {
     const key = rankingKey(category, window);
     const raw = await this.redis.zrevrange(key, 0, Math.max(0, limit - 1), 'WITHSCORES');
     const entries: RankingEntry[] = [];

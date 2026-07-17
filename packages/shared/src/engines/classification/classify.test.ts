@@ -20,7 +20,10 @@ const classesOf = (r: ReturnType<typeof classifyWallet>) => r.labels.map((l) => 
 
 describe('classifyWallet — whale threshold boundaries (SPEC §8)', () => {
   it('portfolio exactly $1,000,000 → MEGA_WHALE (>= boundary)', () => {
-    const r = classifyWallet(base({ portfolioValueUsd: WALLET_THRESHOLDS.megaWhale.portfolioUsd }), NOW);
+    const r = classifyWallet(
+      base({ portfolioValueUsd: WALLET_THRESHOLDS.megaWhale.portfolioUsd }),
+      NOW,
+    );
     expect(classesOf(r)).toContain('MEGA_WHALE');
     expect(r.primary).toBe('MEGA_WHALE');
   });
@@ -33,7 +36,10 @@ describe('classifyWallet — whale threshold boundaries (SPEC §8)', () => {
   });
 
   it('portfolio exactly $250,000 → WHALE (>= boundary)', () => {
-    const r = classifyWallet(base({ portfolioValueUsd: WALLET_THRESHOLDS.whale.portfolioUsd }), NOW);
+    const r = classifyWallet(
+      base({ portfolioValueUsd: WALLET_THRESHOLDS.whale.portfolioUsd }),
+      NOW,
+    );
     expect(classesOf(r)).toContain('WHALE');
   });
 
@@ -45,10 +51,7 @@ describe('classifyWallet — whale threshold boundaries (SPEC §8)', () => {
   });
 
   it('single trade exactly $100,000 → MEGA_WHALE via single-trade rule', () => {
-    const r = classifyWallet(
-      base({ portfolioValueUsd: 5_000, tradeSizesUsd: [100_000] }),
-      NOW,
-    );
+    const r = classifyWallet(base({ portfolioValueUsd: 5_000, tradeSizesUsd: [100_000] }), NOW);
     expect(classesOf(r)).toContain('MEGA_WHALE');
   });
 
@@ -83,7 +86,12 @@ describe('classifyWallet — large trader / retail / new wallet boundaries', () 
 
   it('portfolio < $10k and typical trade < $1k → RETAIL', () => {
     const r = classifyWallet(
-      base({ portfolioValueUsd: 9_999, tradeSizesUsd: [100, 200, 300], firstSeenDaysAgo: 400, txCount: 50 }),
+      base({
+        portfolioValueUsd: 9_999,
+        tradeSizesUsd: [100, 200, 300],
+        firstSeenDaysAgo: 400,
+        txCount: 50,
+      }),
       NOW,
     );
     expect(classesOf(r)).toContain('RETAIL');
@@ -149,7 +157,11 @@ describe('classifyWallet — precedence (SPEC §7)', () => {
 
   it('deployer-linked outranks whale', () => {
     const r = classifyWallet(
-      base({ portfolioValueUsd: 300_000, isFundedByDeployer: true, interactedBeforePublicTrading: true }),
+      base({
+        portfolioValueUsd: 300_000,
+        isFundedByDeployer: true,
+        interactedBeforePublicTrading: true,
+      }),
       NOW,
     );
     expect(classesOf(r)).toEqual(expect.arrayContaining(['DEPLOYER_LINKED', 'WHALE']));
@@ -174,7 +186,12 @@ describe('classifyWallet — precedence (SPEC §7)', () => {
   it('no matching label → UNKNOWN', () => {
     // Old, established, mid portfolio between retail and large-trader gates.
     const r = classifyWallet(
-      base({ portfolioValueUsd: 20_000, tradeSizesUsd: [1_500, 1_500], firstSeenDaysAgo: 400, txCount: 200 }),
+      base({
+        portfolioValueUsd: 20_000,
+        tradeSizesUsd: [1_500, 1_500],
+        firstSeenDaysAgo: 400,
+        txCount: 200,
+      }),
       NOW,
     );
     expect(r.primary).toBe('UNKNOWN');

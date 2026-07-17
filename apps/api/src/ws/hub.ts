@@ -128,7 +128,11 @@ export class WsHub {
         ? rawChannels.filter((c): c is WsMessageType => VALID_CHANNELS.has(c as WsMessageType))
         : [];
       if (channels.length === 0) {
-        this.sendError(client, 'VALIDATION_ERROR', 'channels must be a non-empty array of valid channel names');
+        this.sendError(
+          client,
+          'VALIDATION_ERROR',
+          'channels must be a non-empty array of valid channel names',
+        );
         return;
       }
       if (action === 'subscribe') {
@@ -158,7 +162,10 @@ export class WsHub {
     let type: WsMessageType | undefined;
     let tokenAddress: string | undefined;
     try {
-      const parsed = JSON.parse(payload) as { type?: WsMessageType; data?: { tokenAddress?: string } };
+      const parsed = JSON.parse(payload) as {
+        type?: WsMessageType;
+        data?: { tokenAddress?: string };
+      };
       type = parsed.type;
       tokenAddress = parsed.data?.tokenAddress;
     } catch {
@@ -198,7 +205,11 @@ export class WsHub {
     }
   }
 
-  private sendError(client: Client, code: Parameters<typeof toErrorBody>[0], message: string): void {
+  private sendError(
+    client: Client,
+    code: Parameters<typeof toErrorBody>[0],
+    message: string,
+  ): void {
     try {
       client.socket.send(JSON.stringify(toErrorBody(code, message)));
     } catch {

@@ -21,8 +21,7 @@ import type { ProviderLog } from '../provider/types.js';
 import type { DexAdapter, DecodeContext, DecodedSwap } from './types.js';
 import { addressFromTopic, isSameAddress } from './abi.js';
 
-export const UNIV2_SWAP_SIGNATURE =
-  'Swap(address,uint256,uint256,uint256,uint256,address)';
+export const UNIV2_SWAP_SIGNATURE = 'Swap(address,uint256,uint256,uint256,uint256,address)';
 
 /** keccak256("Swap(address,uint256,uint256,uint256,uint256,address)"). */
 export const UNIV2_SWAP_TOPIC0: Hex = keccak256(toBytes(UNIV2_SWAP_SIGNATURE));

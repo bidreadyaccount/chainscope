@@ -23,8 +23,7 @@ import type { ProviderLog } from '../provider/types.js';
 import type { DexAdapter, DecodeContext, DecodedSwap } from './types.js';
 import { addressFromTopic, isSameAddress } from './abi.js';
 
-export const UNIV3_SWAP_SIGNATURE =
-  'Swap(address,address,int256,int256,uint160,uint128,int24)';
+export const UNIV3_SWAP_SIGNATURE = 'Swap(address,address,int256,int256,uint160,uint128,int24)';
 
 /** keccak256("Swap(address,address,int256,int256,uint160,uint128,int24)"). */
 export const UNIV3_SWAP_TOPIC0: Hex = keccak256(toBytes(UNIV3_SWAP_SIGNATURE));

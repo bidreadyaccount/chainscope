@@ -211,7 +211,13 @@ export class Pipeline {
       const prior = buffer.filter(
         (t) => t.timestamp > now - 2 * windowMs && t.timestamp <= now - windowMs,
       );
-      views[window] = computeTokenView({ window, now, currentTrades: current, priorTrades: prior, meta });
+      views[window] = computeTokenView({
+        window,
+        now,
+        currentTrades: current,
+        priorTrades: prior,
+        meta,
+      });
     }
 
     await this.rankings.updateToken(address, views);
@@ -311,7 +317,11 @@ export class Pipeline {
 
   // --- persistence helpers --------------------------------------------------
 
-  private async persistTrade(trade: NormalizedTrade, tokenId: string, walletId: string): Promise<void> {
+  private async persistTrade(
+    trade: NormalizedTrade,
+    tokenId: string,
+    walletId: string,
+  ): Promise<void> {
     const data = {
       id: trade.id,
       chainId: trade.chainId,

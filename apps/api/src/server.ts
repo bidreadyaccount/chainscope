@@ -61,7 +61,12 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   // OpenAPI docs.
   await app.register(swagger, {
     openapi: {
-      info: { title: 'ChainScope API', version: '0.1.0', description: 'Real-time onchain market-intelligence for Robinhood Chain (demo mode by default).' },
+      info: {
+        title: 'ChainScope API',
+        version: '0.1.0',
+        description:
+          'Real-time onchain market-intelligence for Robinhood Chain (demo mode by default).',
+      },
       tags: [
         { name: 'system' },
         { name: 'tokens' },

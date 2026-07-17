@@ -7,7 +7,15 @@ import { api } from '@/lib/api';
 import { num, timeAgo } from '@/lib/format';
 import { Badge, Card, ErrorState, Skeleton } from '@/components/ui';
 
-function StateBadge({ ok, okText = 'ok', badText = 'down' }: { ok: boolean; okText?: string; badText?: string }) {
+function StateBadge({
+  ok,
+  okText = 'ok',
+  badText = 'down',
+}: {
+  ok: boolean;
+  okText?: string;
+  badText?: string;
+}) {
   return <Badge tone={ok ? 'pos' : 'neg'}>{ok ? okText : badText}</Badge>;
 }
 
@@ -29,7 +37,9 @@ export default function StatusPage() {
         ) : (
           <Badge tone="pos">Live</Badge>
         )}
-        <span className="text-xs text-muted">uptime {num(Math.floor(s.uptimeSeconds / 60))}m · auto-refreshes every 5s</span>
+        <span className="text-xs text-muted">
+          uptime {num(Math.floor(s.uptimeSeconds / 60))}m · auto-refreshes every 5s
+        </span>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -80,7 +90,11 @@ export default function StatusPage() {
               <span>{s.indexer.headBlock ?? '—'}</span>
             </Row>
             <Row label="Lag">
-              <span className={s.indexer.lagBlocks && BigInt(s.indexer.lagBlocks) > 25n ? 'text-warn' : ''}>
+              <span
+                className={
+                  s.indexer.lagBlocks && BigInt(s.indexer.lagBlocks) > 25n ? 'text-warn' : ''
+                }
+              >
                 {s.indexer.lagBlocks ?? '—'} blocks
               </span>
             </Row>
@@ -112,8 +126,7 @@ export default function StatusPage() {
         <Card title="DEX adapters">
           {s.adapters.length === 0 ? (
             <p className="text-sm text-muted">
-              No adapters configured — live decoding inactive until verified addresses are
-              supplied.
+              No adapters configured — live decoding inactive until verified addresses are supplied.
             </p>
           ) : (
             <ul className="space-y-2 text-sm">

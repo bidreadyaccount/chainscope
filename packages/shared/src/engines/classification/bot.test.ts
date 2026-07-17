@@ -51,17 +51,23 @@ describe('scoreBotProbability — indicators (SPEC §8)', () => {
   });
 
   it('abnormal tx frequency at threshold fires', () => {
-    const r = scoreBotProbability(w({ timing: { txPerHourPeak: BOT_INDICATORS.abnormalTxPerHour } }));
+    const r = scoreBotProbability(
+      w({ timing: { txPerHourPeak: BOT_INDICATORS.abnormalTxPerHour } }),
+    );
     expect(r.indicators.find((i) => i.key === 'abnormalTxFrequency')!.triggered).toBe(true);
   });
 
   it('cluster funding at threshold count fires', () => {
-    const r = scoreBotProbability(w({ fundingSourceSharedCount: BOT_INDICATORS.clusterFundingWalletCount }));
+    const r = scoreBotProbability(
+      w({ fundingSourceSharedCount: BOT_INDICATORS.clusterFundingWalletCount }),
+    );
     expect(r.indicators.find((i) => i.key === 'clusterFunding')!.triggered).toBe(true);
   });
 
   it('very short holding at threshold fires', () => {
-    const r = scoreBotProbability(w({ timing: { shortestHoldSeconds: BOT_INDICATORS.veryShortHoldSeconds } }));
+    const r = scoreBotProbability(
+      w({ timing: { shortestHoldSeconds: BOT_INDICATORS.veryShortHoldSeconds } }),
+    );
     expect(r.indicators.find((i) => i.key === 'veryShortHolding')!.triggered).toBe(true);
   });
 

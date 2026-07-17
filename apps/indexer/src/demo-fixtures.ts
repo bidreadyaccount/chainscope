@@ -70,10 +70,19 @@ export function demoPoolConfigs(seed: number): PoolConfig[] {
 export function demoTokenInfos(seed: number): TokenInfo[] {
   const tokens = generateTokens(mulberry32(seed));
   const infos: TokenInfo[] = [
-    { address: DEMO_QUOTE_USDC.address, symbol: DEMO_QUOTE_USDC.symbol, decimals: DEMO_QUOTE_USDC.decimals },
-    { address: DEMO_QUOTE_WETH.address, symbol: DEMO_QUOTE_WETH.symbol, decimals: DEMO_QUOTE_WETH.decimals },
+    {
+      address: DEMO_QUOTE_USDC.address,
+      symbol: DEMO_QUOTE_USDC.symbol,
+      decimals: DEMO_QUOTE_USDC.decimals,
+    },
+    {
+      address: DEMO_QUOTE_WETH.address,
+      symbol: DEMO_QUOTE_WETH.symbol,
+      decimals: DEMO_QUOTE_WETH.decimals,
+    },
   ];
-  for (const t of tokens) infos.push({ address: t.address, symbol: t.symbol, decimals: t.decimals });
+  for (const t of tokens)
+    infos.push({ address: t.address, symbol: t.symbol, decimals: t.decimals });
   return infos;
 }
 

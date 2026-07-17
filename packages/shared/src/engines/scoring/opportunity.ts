@@ -116,7 +116,13 @@ function computePenalties(input: OpportunityInput): PenaltyBreakdown[] {
   const add = (key: string, max: number, severity: number, evidence: string): void => {
     const sev = clamp01(severity);
     if (sev <= 0) return;
-    out.push({ key, applied: round(max * sev, 4), maxPenalty: max, severity: round(sev, 4), evidence });
+    out.push({
+      key,
+      applied: round(max * sev, 4),
+      maxPenalty: max,
+      severity: round(sev, 4),
+      evidence,
+    });
   };
 
   // Deployer-linked selling — severity scales with sell magnitude.
@@ -146,7 +152,9 @@ function computePenalties(input: OpportunityInput): PenaltyBreakdown[] {
   // Extreme holder concentration — max of buyer/seller top-N share.
   const conc = Math.max(r.buyerConcentration, r.sellerConcentration);
   if (conc >= T.extremeConcentrationFraction) {
-    const sev = clamp01((conc - T.extremeConcentrationFraction) / (1 - T.extremeConcentrationFraction));
+    const sev = clamp01(
+      (conc - T.extremeConcentrationFraction) / (1 - T.extremeConcentrationFraction),
+    );
     add(
       'extremeHolderConcentration',
       P.extremeHolderConcentration,

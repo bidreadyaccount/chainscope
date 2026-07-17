@@ -98,7 +98,10 @@ export class WalletReadService {
       }),
       wallet.fundingSourceAddress
         ? this.prisma.wallet.count({
-            where: { chainId: ROBINHOOD_CHAIN_ID, fundingSourceAddress: wallet.fundingSourceAddress },
+            where: {
+              chainId: ROBINHOOD_CHAIN_ID,
+              fundingSourceAddress: wallet.fundingSourceAddress,
+            },
           })
         : Promise.resolve(0),
     ]);

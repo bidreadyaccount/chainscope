@@ -86,8 +86,7 @@ export async function loadLivePoolConfigs(prisma: PrismaClient): Promise<PoolCon
   for (const row of rows) {
     const kind = protocolToKind(row.dex.protocol);
     if (!kind || kind === 'univ4') continue; // V4 decoding is not implemented (round 2)
-    const quoteIsToken0 =
-      row.quoteTokenAddress.toLowerCase() === row.token0Address.toLowerCase();
+    const quoteIsToken0 = row.quoteTokenAddress.toLowerCase() === row.token0Address.toLowerCase();
     out.push({
       poolAddress: row.address as Hex,
       kind,
@@ -122,9 +121,7 @@ export async function buildLiveRuntime(
   const stablecoins = new Set(parseStablecoins(env));
   const pricing: PricingConfig = {
     stablecoins,
-    ...(env.ROBINHOOD_WRAPPED_NATIVE
-      ? { wrappedNative: env.ROBINHOOD_WRAPPED_NATIVE as Hex }
-      : {}),
+    ...(env.ROBINHOOD_WRAPPED_NATIVE ? { wrappedNative: env.ROBINHOOD_WRAPPED_NATIVE as Hex } : {}),
     ethUsdReferenceUsd: opts.ethUsdReferenceUsd ?? null,
   };
   const metaResolver = new LiveTokenMetadataResolver(

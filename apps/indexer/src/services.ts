@@ -61,10 +61,7 @@ export interface IndexerServices {
   readonly close: () => Promise<void>;
 }
 
-export async function buildIndexerServices(
-  env: Env,
-  logger: PinoLogger,
-): Promise<IndexerServices> {
+export async function buildIndexerServices(env: Env, logger: PinoLogger): Promise<IndexerServices> {
   const redis = createRedis(env.REDIS_URL);
   const rankings = new RankingsService(redis);
   const pubsub = new PubSub(redis);

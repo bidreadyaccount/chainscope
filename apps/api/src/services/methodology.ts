@@ -27,7 +27,7 @@ export function buildMethodology(): Record<string, unknown> {
         class: 'MEGA_WHALE',
         label: 'Mega whale',
         description:
-          'Very large holder/trader. Any of: portfolio >= $1,000,000; a single trade >= $100,000; or control of >= 2% of a token\'s tracked circulating supply.',
+          "Very large holder/trader. Any of: portfolio >= $1,000,000; a single trade >= $100,000; or control of >= 2% of a token's tracked circulating supply.",
       },
       {
         class: 'WHALE',
@@ -49,12 +49,14 @@ export function buildMethodology(): Record<string, unknown> {
       {
         class: 'RETAIL',
         label: 'Retail',
-        description: 'Portfolio < $10,000 and typical trade < $1,000 with no stronger classification.',
+        description:
+          'Portfolio < $10,000 and typical trade < $1,000 with no stronger classification.',
       },
       {
         class: 'NEW_WALLET',
         label: 'New wallet',
-        description: 'First observed within the previous 7 days, or fewer than 5 lifetime observed transactions.',
+        description:
+          'First observed within the previous 7 days, or fewer than 5 lifetime observed transactions.',
       },
       {
         class: 'BOT',
@@ -71,9 +73,14 @@ export function buildMethodology(): Record<string, unknown> {
       {
         class: 'MARKET_MAKER',
         label: 'Market maker',
-        description: 'Identified market-making flow. Excluded from directional conviction metrics by default.',
+        description:
+          'Identified market-making flow. Excluded from directional conviction metrics by default.',
       },
-      { class: 'PROTOCOL', label: 'Protocol', description: 'Known protocol/contract flow. Excluded from conviction metrics by default.' },
+      {
+        class: 'PROTOCOL',
+        label: 'Protocol',
+        description: 'Known protocol/contract flow. Excluded from conviction metrics by default.',
+      },
       { class: 'UNKNOWN', label: 'Unknown', description: 'Insufficient history to classify.' },
     ],
     walletThresholds: WALLET_THRESHOLDS,
@@ -81,19 +88,41 @@ export function buildMethodology(): Record<string, unknown> {
     tokenMetrics: [
       { key: 'buyVolumeUsd', description: 'Total USD value of buys in the window.' },
       { key: 'sellVolumeUsd', description: 'Total USD value of sells in the window.' },
-      { key: 'netFlowUsd', description: 'Directional net flow (buys - sells). Excludes market-maker and protocol flow by default.' },
+      {
+        key: 'netFlowUsd',
+        description:
+          'Directional net flow (buys - sells). Excludes market-maker and protocol flow by default.',
+      },
       { key: 'uniqueBuyers / uniqueSellers', description: 'Distinct buyer/seller wallet counts.' },
       { key: 'buySellRatio', description: 'Buy volume divided by sell volume.' },
       { key: 'whaleNetFlowUsd', description: 'Net flow from whale-tier wallets.' },
       { key: 'smartMoneyNetFlowUsd', description: 'Net flow from smart-money wallets.' },
       { key: 'retailNetFlowUsd', description: 'Net flow from retail wallets.' },
       { key: 'newWalletNetFlowUsd', description: 'Net flow from newly observed wallets.' },
-      { key: 'deployerLinkedNetFlowUsd', description: 'Net flow from deployer-linked wallets (negative = deployer selling).' },
-      { key: 'botAssociatedVolumeUsd', description: 'Volume associated with possible-bot wallets.' },
-      { key: 'buyerConcentration / sellerConcentration', description: 'Top-N wallet share of buy/sell volume (0-1).' },
-      { key: 'walletQualityScore', description: 'Quality-weighted composite of participating wallet classes.' },
-      { key: 'dataConfidenceScore', description: 'Confidence in the metrics given price coverage and sample size.' },
-      { key: 'volumeAcceleration', description: 'Change in volume versus a comparable baseline (null when no baseline).' },
+      {
+        key: 'deployerLinkedNetFlowUsd',
+        description: 'Net flow from deployer-linked wallets (negative = deployer selling).',
+      },
+      {
+        key: 'botAssociatedVolumeUsd',
+        description: 'Volume associated with possible-bot wallets.',
+      },
+      {
+        key: 'buyerConcentration / sellerConcentration',
+        description: 'Top-N wallet share of buy/sell volume (0-1).',
+      },
+      {
+        key: 'walletQualityScore',
+        description: 'Quality-weighted composite of participating wallet classes.',
+      },
+      {
+        key: 'dataConfidenceScore',
+        description: 'Confidence in the metrics given price coverage and sample size.',
+      },
+      {
+        key: 'volumeAcceleration',
+        description: 'Change in volume versus a comparable baseline (null when no baseline).',
+      },
     ],
     opportunityScore: {
       description:

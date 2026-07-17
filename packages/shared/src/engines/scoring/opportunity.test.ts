@@ -106,12 +106,16 @@ describe('computeOpportunityScore — breakdown consistency (identity)', () => {
 
 describe('computeOpportunityScore — normalization behaviour', () => {
   it('strong net buying pushes the score above neutral', () => {
-    const r = computeOpportunityScore(inp({ smartMoneyNetFlowUsd: 300_000, whaleNetFlowUsd: 300_000 }));
+    const r = computeOpportunityScore(
+      inp({ smartMoneyNetFlowUsd: 300_000, whaleNetFlowUsd: 300_000 }),
+    );
     expect(r.score).toBeGreaterThan(50);
   });
 
   it('strong net selling pushes the score below neutral', () => {
-    const r = computeOpportunityScore(inp({ smartMoneyNetFlowUsd: -300_000, whaleNetFlowUsd: -300_000 }));
+    const r = computeOpportunityScore(
+      inp({ smartMoneyNetFlowUsd: -300_000, whaleNetFlowUsd: -300_000 }),
+    );
     expect(r.score).toBeLessThan(50);
   });
 
@@ -227,7 +231,9 @@ describe('computeOpportunityScore — signal label boundaries (79.99 vs 80)', ()
     expect(signalLabel(34.99)).toBe('Strong distribution');
   });
   it('score result signal matches signalLabel(score)', () => {
-    const r = computeOpportunityScore(inp({ smartMoneyNetFlowUsd: 200_000, whaleNetFlowUsd: 200_000 }));
+    const r = computeOpportunityScore(
+      inp({ smartMoneyNetFlowUsd: 200_000, whaleNetFlowUsd: 200_000 }),
+    );
     expect(r.signal).toBe(signalLabel(r.score));
   });
 });

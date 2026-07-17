@@ -17,7 +17,9 @@ export interface StatusDeps {
   readonly startedAt: number;
 }
 
-async function ping(fn: () => Promise<unknown>): Promise<{ status: 'ok' | 'error'; latencyMs: number }> {
+async function ping(
+  fn: () => Promise<unknown>,
+): Promise<{ status: 'ok' | 'error'; latencyMs: number }> {
   const t0 = Date.now();
   try {
     await fn();
@@ -30,19 +32,20 @@ async function ping(fn: () => Promise<unknown>): Promise<{ status: 'ok' | 'error
 export async function buildStatus(deps: StatusDeps): Promise<Record<string, unknown>> {
   const { prisma, redis, env, stream } = deps;
 
-  const [db, redisHealth, checkpoint, tokens, trades, wallets, positions, dexes] = await Promise.all([
-    ping(() => prisma.$queryRaw`SELECT 1`),
-    ping(() => redis.ping()),
-    prisma.blockCheckpoint.findFirst({
-      where: { chainId: ROBINHOOD_CHAIN_ID },
-      orderBy: { updatedAt: 'desc' },
-    }),
-    prisma.token.count(),
-    prisma.trade.count(),
-    prisma.wallet.count(),
-    prisma.walletTokenPosition.count(),
-    prisma.dex.findMany({ select: { name: true, protocol: true, enabled: true, isDemo: true } }),
-  ]);
+  const [db, redisHealth, checkpoint, tokens, trades, wallets, positions, dexes] =
+    await Promise.all([
+      ping(() => prisma.$queryRaw`SELECT 1`),
+      ping(() => redis.ping()),
+      prisma.blockCheckpoint.findFirst({
+        where: { chainId: ROBINHOOD_CHAIN_ID },
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.token.count(),
+      prisma.trade.count(),
+      prisma.wallet.count(),
+      prisma.walletTokenPosition.count(),
+      prisma.dex.findMany({ select: { name: true, protocol: true, enabled: true, isDemo: true } }),
+    ]);
 
   const lastIndexedBlock = checkpoint ? checkpoint.lastIndexedBlock.toString() : null;
   const headBlock = checkpoint?.headBlock ? checkpoint.headBlock.toString() : null;
@@ -55,7 +58,11 @@ export async function buildStatus(deps: StatusDeps): Promise<Record<string, unkn
 
   return {
     mode: env.DATA_MODE,
-    chain: { id: ROBINHOOD_CHAIN.id, name: ROBINHOOD_CHAIN.name, verified: ROBINHOOD_CHAIN.verified },
+    chain: {
+      id: ROBINHOOD_CHAIN.id,
+      name: ROBINHOOD_CHAIN.name,
+      verified: ROBINHOOD_CHAIN.verified,
+    },
     uptimeSeconds: Math.floor((Date.now() - deps.startedAt) / 1000),
     datastores: { database: db, redis: redisHealth },
     rpc: {
@@ -71,7 +78,9 @@ export async function buildStatus(deps: StatusDeps): Promise<Record<string, unkn
       confirmations: env.CHAIN_CONFIRMATIONS,
       running: env.DATA_MODE === 'demo' ? Boolean(stream?.isRunning()) : false,
     },
-    demoStream: stream ? stream.stats() : { running: false, ingested: 0, lastTradeAt: null, intervalMs: 0 },
+    demoStream: stream
+      ? stream.stats()
+      : { running: false, ingested: 0, lastTradeAt: null, intervalMs: 0 },
     adapters: dexes,
     coverage: { tokens, trades, wallets, positions },
   };

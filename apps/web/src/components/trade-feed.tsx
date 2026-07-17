@@ -54,7 +54,8 @@ export function TradeFeed({
     },
   });
 
-  if (trades.length === 0) return <EmptyState message="No trades yet — the feed fills as swaps arrive." />;
+  if (trades.length === 0)
+    return <EmptyState message="No trades yet — the feed fills as swaps arrive." />;
 
   return (
     <div className="overflow-x-auto">
@@ -95,16 +96,25 @@ export function TradeFeed({
               <td className="px-2 py-1.5">
                 <ClassChip walletClass={t.walletClass} />
               </td>
-              <td className="px-2 py-1.5 text-right">{t.valueUsd === null ? '—' : usd(t.valueUsd, { compact: true })}</td>
+              <td className="px-2 py-1.5 text-right">
+                {t.valueUsd === null ? '—' : usd(t.valueUsd, { compact: true })}
+              </td>
               <td className="px-2 py-1.5 text-right text-muted">
                 {(() => {
                   const dec = decimalsMap?.[t.tokenAddress.toLowerCase()];
-                  return dec === undefined ? '—' : `${rawAmount(t.tokenAmount, dec)} ${t.tokenSymbol}`;
+                  return dec === undefined
+                    ? '—'
+                    : `${rawAmount(t.tokenAmount, dec)} ${t.tokenSymbol}`;
                 })()}
               </td>
               <td className="px-2 py-1.5 text-xs text-muted">{t.dexName}</td>
               <td className="px-2 py-1.5 text-right text-xs text-muted">
-                <a href={txUrl(t.transactionHash)} target="_blank" rel="noreferrer" className="hover:text-info">
+                <a
+                  href={txUrl(t.transactionHash)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-info"
+                >
                   {timeAgo(t.blockTimestamp)} ↗
                 </a>
               </td>

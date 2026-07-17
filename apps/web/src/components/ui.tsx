@@ -8,7 +8,15 @@
 
 import { type ReactNode } from 'react';
 
-export function Card({ title, children, right }: { title?: string; children: ReactNode; right?: ReactNode }) {
+export function Card({
+  title,
+  children,
+  right,
+}: {
+  title?: string;
+  children: ReactNode;
+  right?: ReactNode;
+}) {
   return (
     <section className="rounded-md border border-edge bg-panel">
       {title ? (
@@ -58,7 +66,10 @@ export function ScoreBadge({ score, signal }: { score: number; signal?: string }
   );
 }
 
-const CLASS_LABELS: Record<string, { label: string; tone: 'pos' | 'neg' | 'warn' | 'info' | 'muted' }> = {
+const CLASS_LABELS: Record<
+  string,
+  { label: string; tone: 'pos' | 'neg' | 'warn' | 'info' | 'muted' }
+> = {
   MEGA_WHALE: { label: 'Mega whale', tone: 'info' },
   WHALE: { label: 'Whale', tone: 'info' },
   LARGE_TRADER: { label: 'Large trader', tone: 'info' },
@@ -116,7 +127,10 @@ export function ErrorState({ message }: { message: string }) {
 /** Tooltip via title attr + dotted underline (restrained, accessible). */
 export function Hint({ label, hint }: { label: ReactNode; hint: string }) {
   return (
-    <span title={hint} className="cursor-help underline decoration-dotted decoration-muted/60 underline-offset-2">
+    <span
+      title={hint}
+      className="cursor-help underline decoration-dotted decoration-muted/60 underline-offset-2"
+    >
       {label}
     </span>
   );

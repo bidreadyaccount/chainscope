@@ -6,7 +6,12 @@ const METHODOLOGY = buildMethodology();
 export const methodologyRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     '/methodology',
-    { schema: { tags: ['methodology'], summary: 'Structured methodology (labels, metrics, formulas)' } },
+    {
+      schema: {
+        tags: ['methodology'],
+        summary: 'Structured methodology (labels, metrics, formulas)',
+      },
+    },
     async () => METHODOLOGY,
   );
 };

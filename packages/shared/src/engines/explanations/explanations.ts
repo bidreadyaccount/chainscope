@@ -28,9 +28,7 @@ export function generateExplanations(input: ExplanationInput): Explanations {
       input.counts?.smartMoneyBuyers && input.counts.smartMoneyBuyers > 0
         ? `${formatCount(input.counts.smartMoneyBuyers)} smart-money wallet(s)`
         : 'Smart-money wallets';
-    positiveFactors.push(
-      `${who} bought a net ${formatUsd(m.smartMoneyNetFlowUsd)}${windowText}.`,
-    );
+    positiveFactors.push(`${who} bought a net ${formatUsd(m.smartMoneyNetFlowUsd)}${windowText}.`);
   }
 
   if (m.whaleNetFlowUsd >= t.significantNetFlowUsd) {
@@ -48,7 +46,8 @@ export function generateExplanations(input: ExplanationInput): Explanations {
   }
 
   const totalDirectional = m.buyVolumeUsd + m.sellVolumeUsd;
-  const imbalance = totalDirectional > 0 ? (m.buyVolumeUsd - m.sellVolumeUsd) / totalDirectional : 0;
+  const imbalance =
+    totalDirectional > 0 ? (m.buyVolumeUsd - m.sellVolumeUsd) / totalDirectional : 0;
   if (imbalance >= t.strongImbalance) {
     positiveFactors.push(
       `Buying outweighed selling: ${formatUsd(m.buyVolumeUsd)} bought vs ${formatUsd(m.sellVolumeUsd)} sold.`,
@@ -72,10 +71,7 @@ export function generateExplanations(input: ExplanationInput): Explanations {
     );
   }
 
-  if (
-    m.volumeAcceleration !== null &&
-    m.volumeAcceleration >= t.significantVolumeAcceleration
-  ) {
+  if (m.volumeAcceleration !== null && m.volumeAcceleration >= t.significantVolumeAcceleration) {
     positiveFactors.push(`Volume accelerated ${formatPct(m.volumeAcceleration)} versus baseline.`);
   }
 
@@ -98,7 +94,10 @@ export function generateExplanations(input: ExplanationInput): Explanations {
     );
   }
 
-  if (m.liquidityChangePct !== null && m.liquidityChangePct <= -RISK_TRIGGERS.liquidityRemovalFraction) {
+  if (
+    m.liquidityChangePct !== null &&
+    m.liquidityChangePct <= -RISK_TRIGGERS.liquidityRemovalFraction
+  ) {
     riskFactors.push(`Liquidity fell ${formatPct(Math.abs(m.liquidityChangePct))}${windowText}.`);
   }
 
@@ -106,7 +105,10 @@ export function generateExplanations(input: ExplanationInput): Explanations {
     riskFactors.push(`Pool liquidity is only ${formatUsd(input.liquidityUsd)} — thin market.`);
   }
 
-  if (input.priceConfidence !== undefined && input.priceConfidence < MIN_DISPLAYABLE_PRICE_CONFIDENCE) {
+  if (
+    input.priceConfidence !== undefined &&
+    input.priceConfidence < MIN_DISPLAYABLE_PRICE_CONFIDENCE
+  ) {
     riskFactors.push('Price confidence is below the reliable-display threshold.');
   }
 

@@ -239,8 +239,7 @@ export class IndexerEngine {
     const snap = this.p.checkpoint.snapshot();
     const status = this.p.provider.status();
     const head = snap.headBlock;
-    const lag =
-      head !== null ? (head - snap.lastIndexedBlock).toString() : null;
+    const lag = head !== null ? (head - snap.lastIndexedBlock).toString() : null;
     await this.p.pubsub.publish('indexer_health', {
       mode: this.p.runtime.isDemo ? 'demo-indexer' : 'live',
       transport: status.transport,

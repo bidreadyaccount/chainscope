@@ -104,7 +104,9 @@ describe('generateExplanations — positive factors (threshold-driven)', () => {
 
   it('significant liquidity growth is stated', () => {
     const e = generateExplanations(input({ liquidityChangePct: 0.3 }));
-    expect(e.positiveFactors.some((f) => f.includes('Liquidity grew') && f.includes('30%'))).toBe(true);
+    expect(e.positiveFactors.some((f) => f.includes('Liquidity grew') && f.includes('30%'))).toBe(
+      true,
+    );
   });
 
   it('high wallet-quality mix is stated when no explicit improvement given', () => {
@@ -125,7 +127,9 @@ describe('generateExplanations — risk factors (hedged)', () => {
   });
 
   it('deployer-linked selling is flagged with the amount', () => {
-    const e = generateExplanations(input({ deployerLinkedNetFlowUsd: -42_000 }, { counts: { deployerSellers: 3 } }));
+    const e = generateExplanations(
+      input({ deployerLinkedNetFlowUsd: -42_000 }, { counts: { deployerSellers: 3 } }),
+    );
     expect(e.riskFactors.some((f) => f.includes('sold') && f.includes('$42,000'))).toBe(true);
   });
 
@@ -150,15 +154,21 @@ describe('generateExplanations — risk factors (hedged)', () => {
   });
 
   it('bot-heavy volume produces a hedged automation note', () => {
-    const e = generateExplanations(input({ buyVolumeUsd: 60_000, sellVolumeUsd: 40_000, botAssociatedVolumeUsd: 50_000 }));
+    const e = generateExplanations(
+      input({ buyVolumeUsd: 60_000, sellVolumeUsd: 40_000, botAssociatedVolumeUsd: 50_000 }),
+    );
     expect(e.riskFactors.some((f) => f.startsWith('Possible automated activity'))).toBe(true);
   });
 });
 
 describe('generateExplanations — determinism and neutrality', () => {
   it('identical input yields identical output', () => {
-    const a = generateExplanations(input({ smartMoneyNetFlowUsd: 50_000, buyerConcentration: 0.7 }));
-    const b = generateExplanations(input({ smartMoneyNetFlowUsd: 50_000, buyerConcentration: 0.7 }));
+    const a = generateExplanations(
+      input({ smartMoneyNetFlowUsd: 50_000, buyerConcentration: 0.7 }),
+    );
+    const b = generateExplanations(
+      input({ smartMoneyNetFlowUsd: 50_000, buyerConcentration: 0.7 }),
+    );
     expect(a).toEqual(b);
   });
 

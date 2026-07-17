@@ -53,7 +53,12 @@ function runPipeline(seed: number) {
       trades: metricTrades,
       currentPriceUsd: token.priceUsd,
       currentLiquidityUsd: token.liquidityUsd,
-      prior: { uniqueBuyers: 5, priceUsd: token.priceUsd, liquidityUsd: token.liquidityUsd, walletQualityScore: 45 },
+      prior: {
+        uniqueBuyers: 5,
+        priceUsd: token.priceUsd,
+        liquidityUsd: token.liquidityUsd,
+        walletQualityScore: 45,
+      },
       baselineVolumeUsd: 50_000,
     });
 
@@ -64,7 +69,8 @@ function runPipeline(seed: number) {
         uniqueBuyerGrowth: metrics.uniqueBuyerGrowth ?? 0,
         buySellImbalance:
           metrics.buyVolumeUsd + metrics.sellVolumeUsd > 0
-            ? (metrics.buyVolumeUsd - metrics.sellVolumeUsd) / (metrics.buyVolumeUsd + metrics.sellVolumeUsd)
+            ? (metrics.buyVolumeUsd - metrics.sellVolumeUsd) /
+              (metrics.buyVolumeUsd + metrics.sellVolumeUsd)
             : 0,
         liquidityGrowthPct: metrics.liquidityChangePct ?? 0,
         buyerQualityImprovement: metrics.buyerQualityImprovement ?? 0,
@@ -146,7 +152,11 @@ describe('integration — full pipeline over demo data', () => {
       quoteValueUsd: t.valueUsd,
       timestamp: t.blockTimestamp.getTime(),
     }));
-    const pos = computePosition({ decimals: token.decimals, currentPriceUsd: token.priceUsd, events });
+    const pos = computePosition({
+      decimals: token.decimals,
+      currentPriceUsd: token.priceUsd,
+      events,
+    });
     expect(pos.totalBoughtRaw).toBeGreaterThanOrEqual(0n);
     expect(Number.isFinite(pos.realizedPnlUsd)).toBe(true);
     expect(pos.winningClosed + pos.losingClosed).toBeGreaterThanOrEqual(0);
@@ -164,7 +174,8 @@ describe('integration — full pipeline over demo data', () => {
 
   it('whale-accumulation tokens show positive whale net flow on average', () => {
     const whaleTokens = results.filter((r) => r.scenario === 'WHALE_ACCUMULATION');
-    const avgWhaleFlow = whaleTokens.reduce((a, r) => a + r.whaleNetFlowUsd, 0) / whaleTokens.length;
+    const avgWhaleFlow =
+      whaleTokens.reduce((a, r) => a + r.whaleNetFlowUsd, 0) / whaleTokens.length;
     expect(avgWhaleFlow).toBeGreaterThan(0);
   });
 

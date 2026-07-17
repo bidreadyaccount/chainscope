@@ -66,7 +66,11 @@ async function main(): Promise<void> {
         errors: services.errors,
         logger,
       },
-      { from: args.from, to: args.to, ...(args.chunk !== undefined ? { chunkSize: args.chunk } : {}) },
+      {
+        from: args.from,
+        to: args.to,
+        ...(args.chunk !== undefined ? { chunkSize: args.chunk } : {}),
+      },
     );
     logger.info(
       { ...result, from: result.from.toString(), to: result.to.toString() },
@@ -79,7 +83,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-   
   console.error('fatal: backfill failed', err);
   process.exit(1);
 });

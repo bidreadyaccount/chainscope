@@ -33,7 +33,9 @@ async function main(): Promise<void> {
   }
 
   await app.listen({ port: env.API_PORT, host: env.API_HOST });
-  app.log.info(`ChainScope API listening on http://${env.API_HOST}:${env.API_PORT} (docs at /docs)`);
+  app.log.info(
+    `ChainScope API listening on http://${env.API_HOST}:${env.API_PORT} (docs at /docs)`,
+  );
 
   let closing = false;
   const shutdown = async (signal: string): Promise<void> => {

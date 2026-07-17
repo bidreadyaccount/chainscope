@@ -18,14 +18,14 @@ Robinhood Chain RPC/WS ──▶ apps/indexer ──┐            ┌──▶ 
                                            └─▶ Postgres + Redis ──▶ apps/web (Next.js dashboard)
 ```
 
-| Package | What it is |
-|---|---|
-| `apps/web` | Next.js 15 App Router dashboard (dark terminal UI, live WS updates) |
-| `apps/api` | Fastify v5 — REST + WebSocket + Redis rankings + demo streaming pipeline |
-| `apps/indexer` | viem-based chain indexer: providers, Uniswap V2/V3 adapters, reorg-safe checkpointing, backfill |
-| `packages/shared` | Types, Zod schemas, engines (classification, cost-basis P&L, metrics, scoring, explanations), demo generator |
-| `packages/database` | Prisma 7 schema (18 models), migrations, seed |
-| `packages/config` | Chain config, env validation, every threshold/weight in one place |
+| Package             | What it is                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `apps/web`          | Next.js 15 App Router dashboard (dark terminal UI, live WS updates)                                          |
+| `apps/api`          | Fastify v5 — REST + WebSocket + Redis rankings + demo streaming pipeline                                     |
+| `apps/indexer`      | viem-based chain indexer: providers, Uniswap V2/V3 adapters, reorg-safe checkpointing, backfill              |
+| `packages/shared`   | Types, Zod schemas, engines (classification, cost-basis P&L, metrics, scoring, explanations), demo generator |
+| `packages/database` | Prisma 7 schema (18 models), migrations, seed                                                                |
+| `packages/config`   | Chain config, env validation, every threshold/weight in one place                                            |
 
 ## Quick start (demo mode — no RPC keys needed)
 

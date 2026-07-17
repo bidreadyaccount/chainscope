@@ -11,7 +11,16 @@ import { use } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { flow, num, pct, shortAddr, timeAgo, usd } from '@/lib/format';
-import { Badge, Card, ClassChip, EmptyState, ErrorState, FlowText, Hint, Skeleton } from '@/components/ui';
+import {
+  Badge,
+  Card,
+  ClassChip,
+  EmptyState,
+  ErrorState,
+  FlowText,
+  Hint,
+  Skeleton,
+} from '@/components/ui';
 import { TradeFeed } from '@/components/trade-feed';
 
 export default function WalletPage({ params }: { params: Promise<{ address: string }> }) {
@@ -41,13 +50,22 @@ export default function WalletPage({ params }: { params: Promise<{ address: stri
             Possible bot ({w.botProbability})
           </Badge>
         ) : null}
-        <a href={w.explorer.address} target="_blank" rel="noreferrer" className="text-xs text-info hover:underline">
+        <a
+          href={w.explorer.address}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-info hover:underline"
+        >
           Explorer ↗
         </a>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Portfolio estimate" hint="Estimated total value across tracked positions" value={usd(w.portfolioEstimateUsd, { compact: true })} />
+        <Stat
+          label="Portfolio estimate"
+          hint="Estimated total value across tracked positions"
+          value={usd(w.portfolioEstimateUsd, { compact: true })}
+        />
         <Stat
           label="Realized P&L"
           hint="Profit and loss on closed position portions (weighted-average cost basis)"
@@ -69,7 +87,11 @@ export default function WalletPage({ params }: { params: Promise<{ address: stri
         <Stat
           label="Smart-money status"
           hint="Requires a minimum trade sample before any smart-money status is assigned"
-          value={w.smartMoney.sampleSizeMet ? `${w.smartMoney.status} (${Math.round(w.smartMoney.score)})` : 'Insufficient history'}
+          value={
+            w.smartMoney.sampleSizeMet
+              ? `${w.smartMoney.status} (${Math.round(w.smartMoney.score)})`
+              : 'Insufficient history'
+          }
         />
       </div>
 
@@ -96,7 +118,10 @@ export default function WalletPage({ params }: { params: Promise<{ address: stri
           )}
         </Card>
 
-        <Card title="Bot probability" right={<span className="text-xs text-muted">{w.botProbability}/100</span>}>
+        <Card
+          title="Bot probability"
+          right={<span className="text-xs text-muted">{w.botProbability}/100</span>}
+        >
           <ul className="space-y-1.5 text-[13px]">
             {w.botIndicators.map((i) => (
               <li key={i.key} className="flex items-center justify-between">
@@ -110,9 +135,15 @@ export default function WalletPage({ params }: { params: Promise<{ address: stri
           </ul>
           {w.fundingSourceAddress ? (
             <p className="mt-3 border-t border-edge/50 pt-2 text-[13px] text-muted">
-              <Hint label="Related funding source" hint="Wallets funded by the same source may be related — presented as evidence, not fact" />
+              <Hint
+                label="Related funding source"
+                hint="Wallets funded by the same source may be related — presented as evidence, not fact"
+              />
               :{' '}
-              <Link href={`/wallet/${w.fundingSourceAddress}`} className="font-mono text-info hover:underline">
+              <Link
+                href={`/wallet/${w.fundingSourceAddress}`}
+                className="font-mono text-info hover:underline"
+              >
                 {shortAddr(w.fundingSourceAddress)}
               </Link>{' '}
               ({w.fundingSourcePeerCount} peer wallets)
@@ -151,12 +182,19 @@ export default function WalletPage({ params }: { params: Promise<{ address: stri
                 {(positions.data?.items ?? []).map((p) => (
                   <tr key={p.tokenAddress} className="border-b border-edge/50">
                     <td className="px-2 py-1.5">
-                      <Link href={`/token/${p.tokenAddress}`} className="font-medium hover:text-info">
+                      <Link
+                        href={`/token/${p.tokenAddress}`}
+                        className="font-medium hover:text-info"
+                      >
                         {p.tokenSymbol}
                       </Link>
                     </td>
-                    <td className="px-2 py-1.5 text-right">{p.currentQty.toLocaleString('en-US', { maximumFractionDigits: 4 })}</td>
-                    <td className="px-2 py-1.5 text-right">{usd(p.currentValueUsd, { compact: true })}</td>
+                    <td className="px-2 py-1.5 text-right">
+                      {p.currentQty.toLocaleString('en-US', { maximumFractionDigits: 4 })}
+                    </td>
+                    <td className="px-2 py-1.5 text-right">
+                      {usd(p.currentValueUsd, { compact: true })}
+                    </td>
                     <td className="px-2 py-1.5 text-right text-muted">{usd(p.avgEntryCostUsd)}</td>
                     <td className="px-2 py-1.5 text-right">
                       <FlowText value={p.realizedPnlUsd} text={flow(p.realizedPnlUsd)} />
@@ -171,7 +209,10 @@ export default function WalletPage({ params }: { params: Promise<{ address: stri
                       {p.isComplete ? (
                         <span className="text-muted">yes</span>
                       ) : (
-                        <Badge tone="warn" title="History incomplete — figures may understate activity">
+                        <Badge
+                          tone="warn"
+                          title="History incomplete — figures may understate activity"
+                        >
                           partial
                         </Badge>
                       )}

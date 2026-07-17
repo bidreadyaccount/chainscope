@@ -12,7 +12,12 @@ import {
 } from '@chainscope/config';
 import { fromRawAmount, serializeForWire, type WalletClass } from '@chainscope/shared';
 import type { PrismaClient } from '@chainscope/database';
-import { computeTokenView, explainTokenView, toMetricTrade, type RawMetricTrade } from './analytics.js';
+import {
+  computeTokenView,
+  explainTokenView,
+  toMetricTrade,
+  type RawMetricTrade,
+} from './analytics.js';
 import type { TokenMetaProvider } from './token-meta.js';
 
 interface TokenRow {
@@ -92,7 +97,11 @@ export class TokenReadService {
     private readonly clock: () => number = Date.now,
   ) {}
 
-  private marketCap(row: TokenRow, priceUsd: number | null, priceConfidence: number): number | null {
+  private marketCap(
+    row: TokenRow,
+    priceUsd: number | null,
+    priceConfidence: number,
+  ): number | null {
     if (priceUsd === null || priceConfidence < MIN_DISPLAYABLE_PRICE_CONFIDENCE) return null;
     const supplyHuman = this.meta.token(row.address)?.circulatingSupply;
     const supply =
@@ -110,9 +119,16 @@ export class TokenReadService {
   }
 
   /** Compute a token list item from its trades within the window. */
-  private buildItem(row: TokenRow, window: TimeWindow, now: number, all: RawMetricTrade[]): TokenListItem {
+  private buildItem(
+    row: TokenRow,
+    window: TimeWindow,
+    now: number,
+    all: RawMetricTrade[],
+  ): TokenListItem {
     const windowMs = TIME_WINDOW_MS[window];
-    const current = all.filter((t) => t.timestamp > now - windowMs && t.timestamp <= now).map(toMetricTrade);
+    const current = all
+      .filter((t) => t.timestamp > now - windowMs && t.timestamp <= now)
+      .map(toMetricTrade);
     const prior = all
       .filter((t) => t.timestamp > now - 2 * windowMs && t.timestamp <= now - windowMs)
       .map(toMetricTrade);
@@ -123,7 +139,13 @@ export class TokenReadService {
       liquidityChangePct: 0,
       contractVerified: row.isVerified,
     };
-    const view = computeTokenView({ window, now, currentTrades: current, priorTrades: prior, meta });
+    const view = computeTokenView({
+      window,
+      now,
+      currentTrades: current,
+      priorTrades: prior,
+      meta,
+    });
     const m = view.metrics;
     return {
       rank: 0,
@@ -162,7 +184,12 @@ export class TokenReadService {
     order: 'asc' | 'desc';
     limit: number;
     cursor?: string;
-  }): Promise<{ window: TimeWindow; items: TokenListItem[]; nextCursor: string | null; total: number }> {
+  }): Promise<{
+    window: TimeWindow;
+    items: TokenListItem[];
+    nextCursor: string | null;
+    total: number;
+  }> {
     const now = this.clock();
     const windowMs = TIME_WINDOW_MS[params.window];
     let tokens = (await this.prisma.token.findMany({
@@ -250,7 +277,11 @@ export class TokenReadService {
     })) as TokenRow | null;
   }
 
-  private async windowTrades(address: string, window: TimeWindow, now: number): Promise<RawMetricTrade[]> {
+  private async windowTrades(
+    address: string,
+    window: TimeWindow,
+    now: number,
+  ): Promise<RawMetricTrade[]> {
     const windowMs = TIME_WINDOW_MS[window];
     const rows = (await this.prisma.trade.findMany({
       where: {
@@ -295,7 +326,11 @@ export class TokenReadService {
       liquidityChangePct: token?.liquidityChangePct ?? null,
       scenario: token?.scenario ?? null,
       pool: pool
-        ? { address: pool.address, quoteSymbol: pool.quoteTokenSymbol, liquidityUsd: pool.liquidityUsd }
+        ? {
+            address: pool.address,
+            quoteSymbol: pool.quoteTokenSymbol,
+            liquidityUsd: pool.liquidityUsd,
+          }
         : null,
       explorer: {
         token: `https://robinhoodchain.blockscout.com/token/${address}`,
@@ -310,7 +345,9 @@ export class TokenReadService {
     const all = (await this.windowTrades(address, window, now)).map(toMetricTrade);
     const windowMs = TIME_WINDOW_MS[window];
     const current = all.filter((t) => t.timestamp > now - windowMs && t.timestamp <= now);
-    const prior = all.filter((t) => t.timestamp > now - 2 * windowMs && t.timestamp <= now - windowMs);
+    const prior = all.filter(
+      (t) => t.timestamp > now - 2 * windowMs && t.timestamp <= now - windowMs,
+    );
     const meta = this.meta.meta(address) ?? {
       priceUsd: null,
       priceConfidence: 0,
@@ -318,7 +355,13 @@ export class TokenReadService {
       liquidityChangePct: 0,
       contractVerified: row.isVerified,
     };
-    const view = computeTokenView({ window, now, currentTrades: current, priorTrades: prior, meta });
+    const view = computeTokenView({
+      window,
+      now,
+      currentTrades: current,
+      priorTrades: prior,
+      meta,
+    });
     return { address, window, metrics: view.metrics };
   }
 
@@ -329,7 +372,9 @@ export class TokenReadService {
     const all = (await this.windowTrades(address, window, now)).map(toMetricTrade);
     const windowMs = TIME_WINDOW_MS[window];
     const current = all.filter((t) => t.timestamp > now - windowMs && t.timestamp <= now);
-    const prior = all.filter((t) => t.timestamp > now - 2 * windowMs && t.timestamp <= now - windowMs);
+    const prior = all.filter(
+      (t) => t.timestamp > now - 2 * windowMs && t.timestamp <= now - windowMs,
+    );
     const meta = this.meta.meta(address) ?? {
       priceUsd: null,
       priceConfidence: 0,
@@ -337,7 +382,13 @@ export class TokenReadService {
       liquidityChangePct: 0,
       contractVerified: row.isVerified,
     };
-    const view = computeTokenView({ window, now, currentTrades: current, priorTrades: prior, meta });
+    const view = computeTokenView({
+      window,
+      now,
+      currentTrades: current,
+      priorTrades: prior,
+      meta,
+    });
     const explanations = explainTokenView(view, meta);
     return {
       address,
@@ -376,7 +427,8 @@ export class TokenReadService {
     if (params.tokenAddress) where.tokenAddress = params.tokenAddress;
     if (params.traderAddress) where.traderAddress = params.traderAddress;
     if (params.side) where.side = params.side;
-    if (params.window) where.blockTimestamp = { gte: new Date(now - TIME_WINDOW_MS[params.window]) };
+    if (params.window)
+      where.blockTimestamp = { gte: new Date(now - TIME_WINDOW_MS[params.window]) };
     if (params.cursor) {
       const ts = Number.parseInt(params.cursor, 10);
       if (Number.isFinite(ts)) {
@@ -395,10 +447,7 @@ export class TokenReadService {
     return { items: page.map((r) => serializeForWire(r)), nextCursor };
   }
 
-  async holders(
-    address: string,
-    limit: number,
-  ): Promise<Record<string, unknown> | null> {
+  async holders(address: string, limit: number): Promise<Record<string, unknown> | null> {
     const row = await this.tokenRow(address);
     if (!row) return null;
     const positions = await this.prisma.walletTokenPosition.findMany({

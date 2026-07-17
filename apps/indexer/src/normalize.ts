@@ -81,7 +81,7 @@ export function normalizeSwap(decoded: DecodedSwap, ctx: NormalizeContext): Norm
   });
 
   const recipientUsable = decoded.recipient && decoded.recipient !== ZERO_ADDR;
-  const trader = (recipientUsable ? decoded.recipient : ctx.txFrom ?? decoded.sender) as Hex;
+  const trader = (recipientUsable ? decoded.recipient : (ctx.txFrom ?? decoded.sender)) as Hex;
 
   const wallet = ctx.walletClass ?? { walletClass: 'UNKNOWN' as WalletClass, confidence: 0 };
 

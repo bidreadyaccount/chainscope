@@ -4,7 +4,15 @@ import { createRedis, type RedisClient } from '../lib/redis.js';
 import { RankingsService, rankingValue } from './rankings.js';
 
 function metrics(partial: Partial<TokenMetrics>): TokenMetrics {
-  return { smartMoneyNetFlowUsd: 0, whaleNetFlowUsd: 0, buyVolumeUsd: 0, sellVolumeUsd: 0, netFlowUsd: 0, buyerConcentration: 0, ...partial } as TokenMetrics;
+  return {
+    smartMoneyNetFlowUsd: 0,
+    whaleNetFlowUsd: 0,
+    buyVolumeUsd: 0,
+    sellVolumeUsd: 0,
+    netFlowUsd: 0,
+    buyerConcentration: 0,
+    ...partial,
+  } as TokenMetrics;
 }
 function score(partial: Partial<ScoreResult>): ScoreResult {
   return { score: 0, riskScore: 0, ...partial } as ScoreResult;

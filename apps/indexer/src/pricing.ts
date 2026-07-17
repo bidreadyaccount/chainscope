@@ -72,7 +72,12 @@ export function priceSwap(params: {
   }
 
   if (quoteUsd === null || baseHuman <= 0) {
-    return { priceUsd: null, valueUsd: null, priceConfidence: PRICE_SOURCE_CONFIDENCE.UNKNOWN, source: 'unknown' };
+    return {
+      priceUsd: null,
+      valueUsd: null,
+      priceConfidence: PRICE_SOURCE_CONFIDENCE.UNKNOWN,
+      source: 'unknown',
+    };
   }
 
   const priceUsd = quoteUsd / baseHuman;

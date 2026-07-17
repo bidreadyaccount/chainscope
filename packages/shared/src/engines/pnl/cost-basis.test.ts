@@ -7,13 +7,31 @@ const T0 = Date.UTC(2025, 0, 1, 0, 0, 0);
 const min = (n: number) => T0 + n * 60_000;
 
 function buy(qty: number, usd: number | null, decimals: number, at: number): PnlTradeEvent {
-  return { side: 'BUY', kind: 'SWAP', tokenAmountRaw: toRawAmount(qty, decimals), quoteValueUsd: usd, timestamp: at };
+  return {
+    side: 'BUY',
+    kind: 'SWAP',
+    tokenAmountRaw: toRawAmount(qty, decimals),
+    quoteValueUsd: usd,
+    timestamp: at,
+  };
 }
 function sell(qty: number, usd: number | null, decimals: number, at: number): PnlTradeEvent {
-  return { side: 'SELL', kind: 'SWAP', tokenAmountRaw: toRawAmount(qty, decimals), quoteValueUsd: usd, timestamp: at };
+  return {
+    side: 'SELL',
+    kind: 'SWAP',
+    tokenAmountRaw: toRawAmount(qty, decimals),
+    quoteValueUsd: usd,
+    timestamp: at,
+  };
 }
 function transferIn(qty: number, decimals: number, at: number): PnlTradeEvent {
-  return { side: 'BUY', kind: 'TRANSFER_IN', tokenAmountRaw: toRawAmount(qty, decimals), quoteValueUsd: null, timestamp: at };
+  return {
+    side: 'BUY',
+    kind: 'TRANSFER_IN',
+    tokenAmountRaw: toRawAmount(qty, decimals),
+    quoteValueUsd: null,
+    timestamp: at,
+  };
 }
 
 describe('computePosition — single buy then sell (hand-computed, 18 decimals)', () => {

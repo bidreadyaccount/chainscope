@@ -29,9 +29,7 @@ import { scoreSmartMoney } from './smart-money.js';
  *   RETAIL                    — default for small, established wallets.
  *   UNKNOWN                   — no label matched.
  */
-const PRECEDENCE_INDEX = new Map<string, number>(
-  WALLET_CLASS_PRECEDENCE.map((c, i) => [c, i]),
-);
+const PRECEDENCE_INDEX = new Map<string, number>(WALLET_CLASS_PRECEDENCE.map((c, i) => [c, i]));
 
 function precedenceRank(cls: WalletClass): number {
   return PRECEDENCE_INDEX.get(cls) ?? Number.MAX_SAFE_INTEGER;
@@ -117,7 +115,9 @@ export function classifyWallet(
 
   // --- Known-entity flags (highest precedence) ---------------------------
   if (w.isKnownProtocol) {
-    label('PROTOCOL', 95, ['Recognized protocol / system address'], { portfolioUsd: w.portfolioValueUsd });
+    label('PROTOCOL', 95, ['Recognized protocol / system address'], {
+      portfolioUsd: w.portfolioValueUsd,
+    });
   }
   if (w.isKnownMarketMaker) {
     label('MARKET_MAKER', 90, ['Recognized market-maker address'], {
@@ -156,8 +156,13 @@ export function classifyWallet(
     if (single >= th.megaWhale.singleTradeUsd)
       reasons.push(`Single trade ≥ $${th.megaWhale.singleTradeUsd.toLocaleString('en-US')}`);
     if (supply >= th.megaWhale.supplyControlFraction)
-      reasons.push(`Controls ≥ ${(th.megaWhale.supplyControlFraction * 100).toFixed(0)}% of supply`);
-    label('MEGA_WHALE', 90, reasons, { portfolioUsd: w.portfolioValueUsd, largestTradeUsd: single });
+      reasons.push(
+        `Controls ≥ ${(th.megaWhale.supplyControlFraction * 100).toFixed(0)}% of supply`,
+      );
+    label('MEGA_WHALE', 90, reasons, {
+      portfolioUsd: w.portfolioValueUsd,
+      largestTradeUsd: single,
+    });
   }
   if (whaleHit) {
     const reasons: string[] = [];
@@ -186,7 +191,10 @@ export function classifyWallet(
   }
 
   // --- Large trader -------------------------------------------------------
-  if (typical >= th.largeTrader.typicalTradeUsd || w.portfolioValueUsd >= th.largeTrader.portfolioUsd) {
+  if (
+    typical >= th.largeTrader.typicalTradeUsd ||
+    w.portfolioValueUsd >= th.largeTrader.portfolioUsd
+  ) {
     const reasons: string[] = [];
     if (typical >= th.largeTrader.typicalTradeUsd)
       reasons.push(`Typical trade ≥ $${th.largeTrader.typicalTradeUsd.toLocaleString('en-US')}`);
@@ -196,7 +204,10 @@ export function classifyWallet(
   }
 
   // --- New wallet ---------------------------------------------------------
-  if (w.firstSeenDaysAgo <= th.newWallet.firstSeenWithinDays || w.txCount < th.newWallet.maxLifetimeTxs) {
+  if (
+    w.firstSeenDaysAgo <= th.newWallet.firstSeenWithinDays ||
+    w.txCount < th.newWallet.maxLifetimeTxs
+  ) {
     const reasons: string[] = [];
     if (w.firstSeenDaysAgo <= th.newWallet.firstSeenWithinDays)
       reasons.push(`First seen within ${th.newWallet.firstSeenWithinDays} days`);

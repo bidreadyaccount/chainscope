@@ -15,7 +15,10 @@ function tr(
   return { side, valueUsd, walletClass, traderAddress, priceConfidence, timestamp: T0 };
 }
 
-function input(trades: MetricTrade[], overrides: Partial<TokenMetricsInput> = {}): TokenMetricsInput {
+function input(
+  trades: MetricTrade[],
+  overrides: Partial<TokenMetricsInput> = {},
+): TokenMetricsInput {
   return {
     window: '1h',
     windowStartMs: T0,
@@ -197,11 +200,18 @@ describe('computeTokenMetrics — quality, confidence, deltas', () => {
 
   it('unique-buyer growth and price/liquidity change vs prior reference', () => {
     const m = computeTokenMetrics(
-      input([tr('BUY', 100, 'RETAIL', '0x1'), tr('BUY', 100, 'RETAIL', '0x2'), tr('BUY', 100, 'RETAIL', '0x3')], {
-        prior: { uniqueBuyers: 2, priceUsd: 1, liquidityUsd: 100_000, walletQualityScore: 40 },
-        currentPriceUsd: 1.2,
-        currentLiquidityUsd: 120_000,
-      }),
+      input(
+        [
+          tr('BUY', 100, 'RETAIL', '0x1'),
+          tr('BUY', 100, 'RETAIL', '0x2'),
+          tr('BUY', 100, 'RETAIL', '0x3'),
+        ],
+        {
+          prior: { uniqueBuyers: 2, priceUsd: 1, liquidityUsd: 100_000, walletQualityScore: 40 },
+          currentPriceUsd: 1.2,
+          currentLiquidityUsd: 120_000,
+        },
+      ),
     );
     expect(m.uniqueBuyerGrowth).toBeCloseTo(0.5, 4); // 3 vs 2 = +50%
     expect(m.priceChangePct).toBeCloseTo(0.2, 4);
