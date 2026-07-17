@@ -1,0 +1,10 @@
+node_modules
+docs
+BUILD_BRIEF.md
+dist
+build
+.next
+coverage
+pnpm-lock.yaml
+packages/database/prisma/migrations
+packages/database/generated

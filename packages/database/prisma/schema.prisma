@@ -1,0 +1,413 @@
+// ChainScope database schema (SPEC §6).
+//
+// Numeric safety: raw onchain quantities are stored as String (never Float);
+// derived USD values and scores use Float. Duplicate-processing is prevented by
+// the @@unique on Trade (chainId, transactionHash, logIndex). Round-2 tables
+// (User, Watchlist, WatchlistToken, Alert) are included now so no migration
+// rewrite is needed later (BUILD_BRIEF scope note).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../generated/client"
+  runtime             = "nodejs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TradeSide {
+  BUY
+  SELL
+}
+
+enum WalletClassEnum {
+  MEGA_WHALE
+  WHALE
+  LARGE_TRADER
+  SMART_MONEY
+  RETAIL
+  NEW_WALLET
+  BOT
+  DEPLOYER_LINKED
+  MARKET_MAKER
+  PROTOCOL
+  UNKNOWN
+}
+
+model Chain {
+  id           Int      @id // e.g. 4663 Robinhood Chain
+  name         String
+  nativeSymbol String   @default("ETH")
+  rpcUrl       String?
+  explorerUrl  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tokens        Token[]
+  wallets       Wallet[]
+  trades        Trade[]
+  dexes         Dex[]
+  checkpoints   BlockCheckpoint[]
+  indexerErrors IndexerError[]
+}
+
+model BlockCheckpoint {
+  id                 String   @id @default(cuid())
+  chainId            Int
+  stream             String   @default("default")
+  lastIndexedBlock   BigInt   @default(0)
+  lastFinalizedBlock BigInt   @default(0)
+  headBlock          BigInt?
+  updatedAt          DateTime @updatedAt
+
+  chain Chain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+
+  @@unique([chainId, stream])
+}
+
+model Dex {
+  id             String   @id @default(cuid())
+  chainId        Int
+  name           String
+  protocol       String // UNISWAP_V2 | UNISWAP_V3 | UNISWAP_V4 | OTHER
+  factoryAddress String?
+  routerAddress  String?
+  enabled        Boolean  @default(true)
+  isDemo         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  chain Chain           @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  pools LiquidityPool[]
+
+  @@unique([chainId, name])
+}
+
+model Token {
+  id                String   @id @default(cuid())
+  chainId           Int
+  address           String
+  symbol            String
+  name              String
+  decimals          Int
+  isVerified        Boolean  @default(false)
+  firstSeenAt       DateTime?
+  // Raw integer circulating supply (String — never Float).
+  circulatingSupply String?
+  isDemo            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  chain           Chain                 @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  pools           LiquidityPool[]
+  trades          Trade[]
+  metricSnapshots TokenMetricSnapshot[]
+  scoreSnapshots  TokenScoreSnapshot[]
+  positions       WalletTokenPosition[]
+  watchlistTokens WatchlistToken[]
+  alerts          Alert[]
+
+  @@unique([chainId, address])
+  @@index([chainId, symbol])
+}
+
+model LiquidityPool {
+  id                String   @id @default(cuid())
+  chainId           Int
+  address           String
+  dexId             String
+  baseTokenId       String?
+  token0Address     String
+  token1Address     String
+  quoteTokenAddress String
+  quoteTokenSymbol  String
+  feeTier           Int?
+  // Derived USD liquidity (Float ok — not a raw balance).
+  liquidityUsd      Float?
+  isDemo            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  dex       Dex    @relation(fields: [dexId], references: [id], onDelete: Cascade)
+  baseToken Token? @relation(fields: [baseTokenId], references: [id], onDelete: SetNull)
+
+  @@unique([chainId, address])
+  @@index([baseTokenId])
+}
+
+model Trade {
+  id              String    @id
+  chainId         Int
+  transactionHash String
+  logIndex        Int
+  blockNumber     BigInt
+  blockTimestamp  DateTime
+
+  dexName      String
+  routerAddress String?
+  poolAddress  String
+  traderAddress String
+
+  tokenId           String
+  tokenAddress      String
+  tokenSymbol       String
+  quoteTokenAddress String
+  quoteTokenSymbol  String
+
+  side        TradeSide
+  // Raw integer onchain amounts (String — never Float).
+  tokenAmount String
+  quoteAmount String
+
+  priceUsd        Float?
+  valueUsd        Float?
+  priceConfidence Float
+
+  walletClass                    WalletClassEnum
+  walletClassificationConfidence Float
+  walletId                       String?
+
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  chain  Chain   @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  token  Token   @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  wallet Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+
+  @@unique([chainId, transactionHash, logIndex])
+  @@index([tokenId, blockTimestamp])
+  @@index([tokenAddress, blockTimestamp])
+  @@index([walletId, blockTimestamp])
+  @@index([traderAddress, blockTimestamp])
+  @@index([blockTimestamp])
+  @@index([side, blockTimestamp])
+}
+
+model Wallet {
+  id                       String   @id @default(cuid())
+  chainId                  Int
+  address                  String
+  firstSeenAt              DateTime?
+  lastSeenAt               DateTime?
+  lifetimeTxCount          Int      @default(0)
+  portfolioValueUsd        Float?
+  primaryClass             WalletClassEnum @default(UNKNOWN)
+  classificationConfidence Float    @default(0)
+  isProfitable             Boolean  @default(false)
+  fundingSourceAddress     String?
+  botProbability           Float?
+  isDemo                   Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  chain             Chain                  @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  labels            WalletLabel[]
+  metricSnapshots   WalletMetricSnapshot[]
+  positions         WalletTokenPosition[]
+  trades            Trade[]
+  relationshipsFrom WalletRelationship[]   @relation("RelSource")
+  relationshipsTo   WalletRelationship[]   @relation("RelTarget")
+
+  @@unique([chainId, address])
+  @@index([primaryClass])
+  @@index([fundingSourceAddress])
+}
+
+model WalletLabel {
+  id                String          @id @default(cuid())
+  walletId          String
+  labelClass        WalletClassEnum
+  confidence        Float
+  reasons           String[]
+  supportingMetrics Json?
+  lastCalculatedAt  DateTime        @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, labelClass])
+}
+
+model WalletMetricSnapshot {
+  id                  String   @id @default(cuid())
+  walletId            String
+  window              String
+  capturedAt          DateTime @default(now())
+  realizedPnlUsd      Float?
+  unrealizedPnlUsd    Float?
+  winRate             Float?
+  tradeCount          Int      @default(0)
+  avgTradeSizeUsd     Float?
+  avgHoldingPeriodSec Float?
+  smartMoneyScore     Float?
+  botProbability      Float?
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, capturedAt])
+}
+
+model WalletTokenPosition {
+  id                  String    @id @default(cuid())
+  walletId            String
+  tokenId             String
+  // Raw integer quantities (String — never Float).
+  totalPurchasedRaw   String    @default("0")
+  totalSoldRaw        String    @default("0")
+  currentQtyRaw       String    @default("0")
+  avgEntryCostUsd     Float?
+  realizedPnlUsd      Float     @default(0)
+  unrealizedPnlUsd    Float     @default(0)
+  totalReturnUsd      Float     @default(0)
+  firstEntryAt        DateTime?
+  lastTradeAt         DateTime?
+  avgHoldingPeriodSec Float?
+  winningClosed       Int       @default(0)
+  losingClosed        Int       @default(0)
+  isComplete          Boolean   @default(true)
+  updatedAt           DateTime  @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  token  Token  @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, tokenId])
+  @@index([tokenId])
+}
+
+model WalletRelationship {
+  id             String   @id @default(cuid())
+  sourceWalletId String
+  targetWalletId String
+  relationType   String // SHARED_FUNDING | DEPLOYER_FUNDED | CLUSTER
+  confidence     Float
+  evidence       Json?
+  createdAt      DateTime @default(now())
+
+  sourceWallet Wallet @relation("RelSource", fields: [sourceWalletId], references: [id], onDelete: Cascade)
+  targetWallet Wallet @relation("RelTarget", fields: [targetWalletId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceWalletId, targetWalletId, relationType])
+  @@index([targetWalletId])
+}
+
+model TokenMetricSnapshot {
+  id                    String   @id @default(cuid())
+  tokenId               String
+  window                String
+  capturedAt            DateTime @default(now())
+  buyVolumeUsd          Float    @default(0)
+  sellVolumeUsd         Float    @default(0)
+  netFlowUsd            Float    @default(0)
+  buyCount              Int      @default(0)
+  sellCount             Int      @default(0)
+  uniqueBuyers          Int      @default(0)
+  uniqueSellers         Int      @default(0)
+  buySellRatio          Float?
+  whaleNetFlowUsd       Float    @default(0)
+  smartMoneyNetFlowUsd  Float    @default(0)
+  retailNetFlowUsd      Float    @default(0)
+  newWalletNetFlowUsd   Float    @default(0)
+  botVolumeUsd          Float    @default(0)
+  deployerNetFlowUsd    Float    @default(0)
+  avgTradeSizeUsd       Float?
+  medianTradeSizeUsd    Float?
+  priceChangePct        Float?
+  volumeAcceleration    Float?
+  liquidityChangePct    Float?
+  holderGrowth          Float?
+  buyerConcentration    Float?
+  sellerConcentration   Float?
+  walletQualityScore    Float?
+  dataConfidence        Float    @default(0)
+
+  token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenId, window, capturedAt])
+  @@index([tokenId, window, capturedAt])
+}
+
+model TokenScoreSnapshot {
+  id               String   @id @default(cuid())
+  tokenId          String
+  window           String
+  capturedAt       DateTime @default(now())
+  opportunityScore Float
+  riskScore        Float
+  signalLabel      String
+  breakdown        Json
+
+  token Token @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenId, window, capturedAt])
+  @@index([tokenId, window, capturedAt])
+  @@index([window, opportunityScore])
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  displayName String?
+  createdAt   DateTime @default(now())
+
+  watchlists Watchlist[]
+  alerts     Alert[]
+}
+
+model Watchlist {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String   @default("Default")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokens WatchlistToken[]
+
+  @@index([userId])
+}
+
+model WatchlistToken {
+  id          String   @id @default(cuid())
+  watchlistId String
+  tokenId     String
+  note        String?
+  addedAt     DateTime @default(now())
+
+  watchlist Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  token     Token     @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, tokenId])
+}
+
+model Alert {
+  id        String   @id @default(cuid())
+  userId    String?
+  tokenId   String?
+  type      String // SCORE_CROSS | WHALE_BUY | LIQUIDITY_DROP | ...
+  threshold Float?
+  window    String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  token Token? @relation(fields: [tokenId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([tokenId])
+}
+
+model IndexerError {
+  id          String   @id @default(cuid())
+  chainId     Int
+  context     String
+  message     String
+  blockNumber BigInt?
+  txHash      String?
+  severity    String   @default("error") // info | warn | error | fatal
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  chain Chain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+
+  @@index([chainId, createdAt])
+}

@@ -1,0 +1,49 @@
+# Docker Compose for ChainScope local infrastructure (Postgres + Redis).
+#
+# NOTE: This file is provided for END USERS running ChainScope on their own
+# machines. In the reference build environment Postgres and Redis already run
+# natively, so this compose file is NOT used there.
+#
+# Usage:
+#   docker compose up -d
+#   # then set DATABASE_URL / REDIS_URL in your .env to match the values below.
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: chainscope-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chainscope
+      POSTGRES_PASSWORD: chainscope
+      POSTGRES_DB: chainscope
+    ports:
+      - '5432:5432'
+    volumes:
+      - chainscope_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U chainscope -d chainscope']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7
+    container_name: chainscope-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - chainscope_redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  chainscope_pgdata:
+  chainscope_redisdata:
