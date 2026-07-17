@@ -264,10 +264,14 @@ export const SIGNAL_BANDS: readonly SignalBand[] = [
 
 export function signalLabel(score: number): string {
   const clamped = Math.max(0, Math.min(100, score));
+  // SIGNAL_BANDS is ordered highest-first; match on the lower bound only so
+  // fractional scores in a band's interior (e.g. 79.99) resolve to the correct
+  // band instead of falling into the integer gap between `max` and the next
+  // band's `min`. 79.99 → 'Positive accumulation'; 80 → 'Strong accumulation'.
   for (const band of SIGNAL_BANDS) {
-    if (clamped >= band.min && clamped <= band.max) return band.label;
+    if (clamped >= band.min) return band.label;
   }
-  return 'Mixed';
+  return SIGNAL_BANDS[SIGNAL_BANDS.length - 1]?.label ?? 'Strong distribution';
 }
 
 // ---------------------------------------------------------------------------
@@ -314,6 +318,168 @@ export const METRICS_CONFIG: MetricsConfig = {
   volumeAccelerationBaseline: '1h',
 };
 
+// ---------------------------------------------------------------------------
+// SPEC §8 — Bot indicator scoring weights (points toward a 0–100 probability).
+// The BOT_INDICATORS block above holds the *thresholds* that decide whether an
+// indicator fires; these are the *weights* each fired indicator contributes.
+// Deliberately over-sum (>100) so a few strong signals saturate; probability is
+// clamped to 100. Engines must not hardcode these.
+// ---------------------------------------------------------------------------
+
+export interface BotIndicatorWeights {
+  readonly launchBlockPurchase: number;
+  readonly extremelyShortReaction: number;
+  readonly repeatedIdenticalAmounts: number;
+  readonly abnormalTxFrequency: number;
+  readonly repetitiveRouterTokenPattern: number;
+  readonly clusterFunding: number;
+  readonly veryShortHolding: number;
+}
+
+export const BOT_INDICATOR_WEIGHTS: BotIndicatorWeights = {
+  launchBlockPurchase: 25,
+  extremelyShortReaction: 25,
+  repeatedIdenticalAmounts: 20,
+  abnormalTxFrequency: 20,
+  repetitiveRouterTokenPattern: 15,
+  clusterFunding: 15,
+  veryShortHolding: 15,
+};
+
+// ---------------------------------------------------------------------------
+// SPEC §8 — Deployer-linked evidence weights (points toward a 0–100 confidence).
+// ---------------------------------------------------------------------------
+
+export interface DeployerEvidenceWeights {
+  readonly fundedByDeployer: number;
+  readonly earlyAllocation: number;
+  readonly preLaunchInteraction: number;
+  readonly sharedFundingSource: number;
+  readonly liquidityManagement: number;
+}
+
+export const DEPLOYER_EVIDENCE_WEIGHTS: DeployerEvidenceWeights = {
+  fundedByDeployer: 45,
+  earlyAllocation: 25,
+  preLaunchInteraction: 30,
+  sharedFundingSource: 20,
+  liquidityManagement: 20,
+};
+
+// ---------------------------------------------------------------------------
+// SPEC §8 — Smart-money component normalization scales (deterministic, bounded).
+// ROI and risk-adjusted return are mapped through 0.5 + 0.5*tanh(x/scale) so a
+// zero value maps to 0.5 and large magnitudes saturate toward 0/1.
+// ---------------------------------------------------------------------------
+
+export interface SmartMoneyNormalization {
+  /** ROI fraction (realized/invested) at which profitability ~saturates. */
+  readonly roiScale: number;
+  /** Risk-adjusted (return/stddev) ratio scale. */
+  readonly riskAdjustedScale: number;
+  /** Closed-position count mapped via log to a 0..1 trade-count confidence. */
+  readonly tradeCountTarget: number;
+}
+
+export const SMART_MONEY_NORMALIZATION: SmartMoneyNormalization = {
+  roiScale: 1.0, // 100% ROI → ~0.88
+  riskAdjustedScale: 2.0,
+  tradeCountTarget: 30,
+};
+
+// ---------------------------------------------------------------------------
+// SPEC §10 — Wallet-quality weighting: per-class quality contribution (0..1)
+// used to compute a token's volume-weighted wallet-quality score.
+// ---------------------------------------------------------------------------
+
+export type WalletClassName = (typeof WALLET_CLASS_PRECEDENCE)[number];
+
+export const WALLET_QUALITY_WEIGHTS: Record<WalletClassName, number> = {
+  PROTOCOL: 0.5,
+  MARKET_MAKER: 0.5,
+  DEPLOYER_LINKED: 0.2,
+  BOT: 0.15,
+  MEGA_WHALE: 0.9,
+  WHALE: 0.85,
+  SMART_MONEY: 1.0,
+  LARGE_TRADER: 0.65,
+  NEW_WALLET: 0.35,
+  RETAIL: 0.45,
+  UNKNOWN: 0.3,
+};
+
+// ---------------------------------------------------------------------------
+// SPEC §10 — Data-confidence blend + top-N concentration cohort size.
+// ---------------------------------------------------------------------------
+
+export interface DataConfidenceWeights {
+  /** Weight on average price-confidence coverage (0..1). */
+  readonly priceCoverage: number;
+  /** Weight on sample-size adequacy (0..1). */
+  readonly sampleSize: number;
+}
+
+export const DATA_CONFIDENCE_WEIGHTS: DataConfidenceWeights = {
+  priceCoverage: 0.6,
+  sampleSize: 0.4,
+};
+
+/** Cohort size for buyer/seller concentration (top-N share of volume). */
+export const CONCENTRATION_TOP_N = 5;
+
+// ---------------------------------------------------------------------------
+// SPEC §12 — Opportunity component normalization scales. Signed components are
+// mapped via 0.5 + 0.5*tanh(raw/scale); a zero raw value → neutral 0.5.
+// Bounded [-1,1] components (buy/sell imbalance) skip tanh and map linearly.
+// ---------------------------------------------------------------------------
+
+export interface OpportunityNormalization {
+  /** USD net-flow scale for smart-money / whale flow. */
+  readonly netFlowUsdScale: number;
+  /** Unique-buyer growth fraction scale. */
+  readonly uniqueBuyerGrowthScale: number;
+  /** Liquidity growth fraction scale. */
+  readonly liquidityGrowthScale: number;
+  /** Buyer-quality improvement scale (points on the 0..100 quality scale). */
+  readonly buyerQualityScale: number;
+  /** Volume acceleration fraction scale. */
+  readonly volumeAccelerationScale: number;
+  /** Price confirmation fraction scale. */
+  readonly priceConfirmationScale: number;
+}
+
+export const OPPORTUNITY_NORMALIZATION: OpportunityNormalization = {
+  netFlowUsdScale: 100_000,
+  uniqueBuyerGrowthScale: 0.5,
+  liquidityGrowthScale: 0.25,
+  buyerQualityScale: 20,
+  volumeAccelerationScale: 1.0,
+  priceConfirmationScale: 0.15,
+};
+
+// ---------------------------------------------------------------------------
+// SPEC §16 — Deterministic explanation significance thresholds. A factor is
+// only emitted when the underlying metric crosses one of these. No LLM, no
+// magic numbers inside the generator itself.
+// ---------------------------------------------------------------------------
+
+export const EXPLANATION_THRESHOLDS = {
+  /** Net flow (USD, abs) above which a directional flow is worth stating. */
+  significantNetFlowUsd: 10_000,
+  /** Unique-buyer growth fraction considered a positive factor. */
+  strongBuyerGrowth: 0.25,
+  /** Buy/sell imbalance (0..1 abs) considered a positive/negative factor. */
+  strongImbalance: 0.3,
+  /** Liquidity growth fraction worth stating positively. */
+  significantLiquidityGrowth: 0.1,
+  /** Volume acceleration fraction worth stating. */
+  significantVolumeAcceleration: 0.5,
+  /** Buyer-quality improvement (points) worth stating. */
+  buyerQualityImprovement: 5,
+  /** Wallet-quality score above which the participant mix is "high quality". */
+  strongWalletQuality: 70,
+} as const;
+
 /**
  * Single aggregate export so consumers can import one object if preferred.
  * Individual named exports remain the primary interface.
@@ -326,7 +492,14 @@ export const THRESHOLDS = {
   bot: BOT_INDICATORS,
   deployerLink: DEPLOYER_LINK,
   walletClassPrecedence: WALLET_CLASS_PRECEDENCE,
+  botIndicatorWeights: BOT_INDICATOR_WEIGHTS,
+  deployerEvidenceWeights: DEPLOYER_EVIDENCE_WEIGHTS,
+  smartMoneyNormalization: SMART_MONEY_NORMALIZATION,
+  walletQualityWeights: WALLET_QUALITY_WEIGHTS,
+  dataConfidenceWeights: DATA_CONFIDENCE_WEIGHTS,
+  concentrationTopN: CONCENTRATION_TOP_N,
   opportunityWeights: OPPORTUNITY_WEIGHTS,
+  opportunityNormalization: OPPORTUNITY_NORMALIZATION,
   riskPenalties: RISK_PENALTIES,
   riskTriggers: RISK_TRIGGERS,
   signalBands: SIGNAL_BANDS,
@@ -334,4 +507,5 @@ export const THRESHOLDS = {
   minDisplayablePriceConfidence: MIN_DISPLAYABLE_PRICE_CONFIDENCE,
   minTokenDataConfidence: MIN_TOKEN_DATA_CONFIDENCE,
   metrics: METRICS_CONFIG,
+  explanations: EXPLANATION_THRESHOLDS,
 } as const;
