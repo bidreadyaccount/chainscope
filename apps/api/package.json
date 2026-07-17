@@ -5,6 +5,10 @@
   "type": "module",
   "description": "Fastify REST + WebSocket server (Phase 3).",
   "main": "./src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./*": "./src/*"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",

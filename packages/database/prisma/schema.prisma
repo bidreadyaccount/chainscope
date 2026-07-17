@@ -60,6 +60,10 @@ model BlockCheckpoint {
   lastIndexedBlock   BigInt   @default(0)
   lastFinalizedBlock BigInt   @default(0)
   headBlock          BigInt?
+  // Block hash at lastIndexedBlock, and a bounded ring of recent (number->hash)
+  // pairs, used for reorg detection + bounded ancestor walk-back (Phase 4).
+  lastIndexedHash    String?
+  recentHashes       Json?
   updatedAt          DateTime @updatedAt
 
   chain Chain @relation(fields: [chainId], references: [id], onDelete: Cascade)

@@ -5,4 +5,5 @@ export default defineWorkspace([
   'packages/shared',
   'packages/database',
   'apps/api',
+  'apps/indexer',
 ]);
