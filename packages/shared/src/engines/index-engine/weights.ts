@@ -121,6 +121,18 @@ function toBasisPoints(entries: BpsEntry[], capBps = WEIGHT_DENOMINATOR_BPS): nu
 }
 
 /**
+ * Public largest-remainder rounder: given identified fractional weights that sum
+ * to ~1, return integer bps that sum to EXACTLY 10000, order-independent by
+ * identity. Used by the simulator to reconcile realized (renormalized) weights so
+ * they never drift to 9999/10001 (audit F-01). No cap is applied.
+ */
+export function largestRemainderBps(
+  entries: ReadonlyArray<{ id: string; fraction: number }>,
+): number[] {
+  return toBasisPoints(entries.map((e) => ({ id: e.id, fraction: e.fraction })));
+}
+
+/**
  * Finite water-filling: return fractions summing to 1 with every fraction ≤
  * maxFraction. Each pass freezes the names that would exceed the cap at exactly
  * the cap and redistributes the remaining budget to the still-free names in

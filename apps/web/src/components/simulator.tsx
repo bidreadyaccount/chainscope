@@ -102,7 +102,16 @@ export function Simulator({ slug }: { slug: string }) {
               {sim.data.allocations.map((a) => (
                 <tr key={a.ticker} className="border-b border-edge/40">
                   <td className="py-1 font-medium">{a.ticker}</td>
-                  <td className="py-1 text-right text-muted">{bpsToPct(a.weightBps)}</td>
+                  {/* Show the REALIZED weight (what the dollars actually buy). When it
+                      differs from target (a name was excluded), show target too. */}
+                  <td className="py-1 text-right">
+                    {bpsToPct(a.realizedWeightBps)}
+                    {a.realizedWeightBps !== a.weightBps ? (
+                      <span className="ml-1 text-[11px] text-muted">
+                        (target {bpsToPct(a.weightBps)})
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="py-1 text-right">{usd(a.allocationUsd)}</td>
                   <td className="py-1 text-right text-muted">
                     {a.shares.toLocaleString('en-US', { maximumFractionDigits: 4 })}

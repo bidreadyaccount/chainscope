@@ -16,25 +16,31 @@ const INDEX_METHODOLOGIES = ['EQUAL', 'MARKET_CAP', 'PRICE', 'INVERSE_VOL', 'CAP
 
 const hasDupes = (xs: string[]): boolean => new Set(xs).size !== xs.length;
 
-// Input consistency guard (audit R-03 + hardening note): reject case-insensitive
-// duplicate tickers, and require every manual-weight ticker to appear in `tickers`
-// (no silently-filtered manual entries).
+// Canonicalize a ticker: trim surrounding whitespace and uppercase, then require
+// 1..16 chars AFTER trimming (audit F-02 — `' AAPL'`/`'AAPL '` must equal `'AAPL'`
+// so duplicate detection and DB lookup can't be bypassed with padding).
+const tickerSchema = z
+  .string()
+  .max(64)
+  .transform((s) => s.trim().toUpperCase())
+  .pipe(z.string().min(1).max(16));
+
+// Input consistency guard (audit R-03/F-02): case- and whitespace-insensitive
+// duplicate rejection, and every manual-weight ticker must appear in `tickers`.
 const previewBody = z
   .object({
-    tickers: z.array(z.string().min(1).max(16)).min(1).max(100),
+    tickers: z.array(tickerSchema).min(1).max(100),
     methodology: z.enum(INDEX_METHODOLOGIES).optional(),
     manualWeights: z
-      .array(
-        z.object({ ticker: z.string().min(1).max(16), weight: z.number().finite().positive() }),
-      )
+      .array(z.object({ ticker: tickerSchema, weight: z.number().finite().positive() }))
       .max(100)
       .optional(),
     maxWeightBps: z.number().int().min(1).max(10000).optional(),
   })
   .strict()
   .superRefine((body, ctx) => {
-    const tickersUpper = body.tickers.map((t) => t.toUpperCase());
-    if (hasDupes(tickersUpper)) {
+    // body.tickers / manualWeights[].ticker are already trimmed + uppercased.
+    if (hasDupes(body.tickers)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['tickers'],
@@ -42,16 +48,16 @@ const previewBody = z
       });
     }
     if (body.manualWeights) {
-      const mwUpper = body.manualWeights.map((w) => w.ticker.toUpperCase());
-      if (hasDupes(mwUpper)) {
+      const mw = body.manualWeights.map((w) => w.ticker);
+      if (hasDupes(mw)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['manualWeights'],
           message: 'Duplicate tickers in manualWeights are not allowed',
         });
       }
-      const inTickers = new Set(tickersUpper);
-      const orphans = mwUpper.filter((t) => !inTickers.has(t));
+      const inTickers = new Set(body.tickers);
+      const orphans = mw.filter((t) => !inTickers.has(t));
       if (orphans.length > 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

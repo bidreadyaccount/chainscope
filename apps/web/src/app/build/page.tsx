@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, Plus } from 'lucide-react';
 import { api, type Methodology, type StockRow } from '@/lib/api';
 import { pct, usd } from '@/lib/format';
-import { Badge, Card, ErrorState, Hint, Skeleton } from '@/components/ui';
+import { Badge, Card, EmptyState, ErrorState, Hint, Skeleton } from '@/components/ui';
 
 const METHODS: Array<{ key: Methodology | 'MANUAL'; label: string }> = [
   { key: 'MARKET_CAP', label: 'Market cap' },
@@ -88,6 +88,12 @@ export default function BuildPage() {
         >
           {stocks.isLoading ? (
             <Skeleton rows={8} />
+          ) : stocks.isError ? (
+            <ErrorState message={(stocks.error as Error).message} />
+          ) : (stocks.data?.items.length ?? 0) === 0 ? (
+            <EmptyState message="No stock tokens available in the registry." />
+          ) : filtered.length === 0 ? (
+            <EmptyState message={`No stocks match "${search}".`} />
           ) : (
             <div className="max-h-[420px] overflow-y-auto">
               <table className="w-full text-[13px]">

@@ -149,4 +149,24 @@ describe('simulateInvestment', () => {
     expect(sim.finalValueUsd).toBeNull();
     expect(sim.totalReturn).toBeNull();
   });
+
+  it('realized weights reconcile to exactly 10000 after exclusion (audit F-01)', () => {
+    // 4 names at 2500 each; one unpriced → 3 priced names split 1/3 each. Independent
+    // Math.round would give [3333,3333,3333]=9999; largest-remainder must sum to 10000.
+    const sim = simulateInvestment(
+      3000,
+      [W('a', 2500), W('b', 2500), W('d', 2500), W('e', 2500)],
+      new Map<string, number | null>([
+        ['a', 100],
+        ['b', 100],
+        ['d', 100],
+        ['e', null], // unpriced
+      ]),
+    );
+    const realizedSum = sim.allocations.reduce((s, x) => s + x.realizedWeightBps, 0);
+    expect(realizedSum).toBe(10000);
+    expect(sim.allocations.map((a) => a.realizedWeightBps).sort((x, y) => x - y)).toEqual([
+      3333, 3333, 3334,
+    ]);
+  });
 });

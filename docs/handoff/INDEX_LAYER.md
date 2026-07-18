@@ -157,3 +157,25 @@ fixed (full suite 359 → **372**; engine 61 → 65; new web smoke test project)
   additionally rejects case-insensitive duplicate tickers and any `manualWeights` ticker not present in
   `tickers` (closes the silent-filter inconsistency the audit noted). Tests cover aggregation,
   collapse-below-minimum, and both 400s.
+
+---
+
+## Re-audit remediation (round 3)
+
+Round-3 external audit of `d03109c` confirmed R-01..R-04 fixed, the engine clean through a third
+5,000-book fuzz, and first-principles cross-checks matching exactly. It found 2 Medium + 2 Low, all in
+the builder/simulator surface — all fixed (full suite 372 → **376**):
+
+- **F-01 (Med) — realized simulator weights could sum to 9,999/10,001.** `realizedWeightBps` was rounded
+  per-holding with `Math.round`. Now uses the shared largest-remainder rounder (`largestRemainderBps`,
+  exported from the engine), so realized weights sum to EXACTLY 10000. Test: 4×2500 with one unpriced →
+  `[3333,3333,3334]`.
+- **F-02 (Med) — whitespace-padded duplicate tickers bypassed validation.** `/indexes/preview` now
+  canonicalizes each ticker with `trim().toUpperCase()` at the Zod boundary (before dedup + before DB
+  lookup) and rejects empty-after-trim, so `' AAPL'`/`'AAPL '`/`'AAPL'` collapse to one. Tests cover
+  padded duplicates, padded-but-valid, and whitespace-only.
+- **F-03 (Low) — Simulator showed target weight after renormalization.** The allocation table now shows
+  the REALIZED weight (what the dollars actually buy) and, when it differs from target, shows the target
+  alongside.
+- **F-04 (Low) — Builder had no error/empty states.** `/build` now renders an error state on a failed
+  `/stocks` query, an empty state for an empty registry, and a no-match state for a zero-result search.

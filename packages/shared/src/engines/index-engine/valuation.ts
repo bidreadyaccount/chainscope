@@ -14,6 +14,7 @@
 
 import { WEIGHT_DENOMINATOR_BPS, TRADING_DAYS_PER_YEAR } from '@chainscope/config';
 import { round } from '../math.js';
+import { largestRemainderBps } from './weights.js';
 import type {
   Basket,
   ConcentrationResult,
@@ -162,16 +163,22 @@ export function simulateInvestment(
   const amount = Number.isFinite(amountUsd) && amountUsd > 0 ? amountUsd : 0;
   const basket = buildBasket(weights, prices, amount);
   const invested = basket.investedWeightBps;
-  const allocations = basket.holdings.map((h) => {
+  // Realized weights are the renormalized shares of the ACTUAL priced basket. Round
+  // them together with largest-remainder (not independent Math.round) so they sum to
+  // EXACTLY 10000 and reconcile to 100% (audit F-01).
+  const realizedBps =
+    invested > 0
+      ? largestRemainderBps(
+          basket.holdings.map((h) => ({ id: h.stockTokenId, fraction: h.weightBps / invested })),
+        )
+      : basket.holdings.map(() => 0);
+  const allocations = basket.holdings.map((h, i) => {
     const price = usablePrice(prices.get(h.stockTokenId))!;
-    // Realized weight = the share of the ACTUAL priced basket this holding is,
-    // which differs from the original target weight when names were excluded.
-    const realizedWeightBps = invested > 0 ? Math.round((h.weightBps / invested) * BPS) : 0;
     return {
       stockTokenId: h.stockTokenId,
       ticker: h.ticker,
       weightBps: h.weightBps,
-      realizedWeightBps,
+      realizedWeightBps: realizedBps[i]!,
       allocationUsd: round(h.shares * price, 2),
       shares: round(h.shares, 6),
       priceUsd: price,

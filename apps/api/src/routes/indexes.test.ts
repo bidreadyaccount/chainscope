@@ -168,6 +168,32 @@ describe('POST /indexes/preview (builder)', () => {
     });
     expect(status).toBe(400);
   });
+
+  it('rejects whitespace-padded duplicate tickers (400) — audit F-02', async () => {
+    const { status } = await post('/api/v1/indexes/preview', {
+      tickers: ['AAPL', ' AAPL', 'MSFT'],
+      methodology: 'EQUAL',
+    });
+    expect(status).toBe(400);
+  });
+
+  it('trims whitespace so a padded valid request still works', async () => {
+    const { status, body } = await post('/api/v1/indexes/preview', {
+      tickers: [' AAPL ', 'MSFT'],
+      methodology: 'EQUAL',
+    });
+    expect(status).toBe(200);
+    const weights = body.weights as Array<{ ticker: string }>;
+    expect(weights.map((w) => w.ticker).sort()).toEqual(['AAPL', 'MSFT']);
+  });
+
+  it('rejects a whitespace-only ticker (400)', async () => {
+    const { status } = await post('/api/v1/indexes/preview', {
+      tickers: ['   ', 'MSFT'],
+      methodology: 'EQUAL',
+    });
+    expect(status).toBe(400);
+  });
 });
 
 describe('GET /indexes/:slug/simulate', () => {
