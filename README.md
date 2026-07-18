@@ -31,6 +31,7 @@ Robinhood Chain RPC/WS ──▶ apps/indexer ──┐            ┌──▶ 
 | `packages/shared`   | Types, Zod schemas, engines (classification, cost-basis P&L, metrics, scoring, explanations, **index engine**, **trade planner**), demo generator |
 | `packages/database` | Prisma 7 schema (22 models incl. stock-token index layer), migrations, seed                                                    |
 | `packages/config`   | Chain config, env validation, every threshold/weight in one place                                                              |
+| `packages/contracts`| **Buyable layer** — `BasketRouter.sol`: non-custodial one-click buy/sell/rebalance (Solidity + solc-js/ganache tests)            |
 
 ## Quick start (demo mode — no RPC keys needed)
 
@@ -67,6 +68,7 @@ pnpm -r typecheck   # strict TS, 6 projects
 pnpm lint           # eslint flat config
 pnpm test           # vitest: 398 tests (engines, builder/simulator, trade planner, API, indexer, web nav smoke)
 pnpm --filter @chainscope/web build
+pnpm --filter @chainscope/contracts test   # BasketRouter (buyable layer) — solc-js + ganache, ~50s
 ```
 
 ## Docs

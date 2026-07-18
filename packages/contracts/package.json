@@ -1,0 +1,19 @@
+{
+  "name": "@chainscope/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Non-custodial basket router (buyable layer) — Solidity contracts + tests.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0"
+  },
+  "devDependencies": {
+    "solc": "0.8.28",
+    "ethers": "^6.13.0",
+    "ganache": "^7.9.2",
+    "vitest": "^2.1.8"
+  }
+}

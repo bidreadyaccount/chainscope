@@ -99,31 +99,47 @@ match the targets within the band; buys and sells reconcile. `minReceived`
 encodes slippage per side (min **tokens** on a buy, min **USD** on a sell) so the
 contract can revert rather than fill a bad price.
 
-## Layer 2 — the router contract (next increment)
+## Layer 2 — the router contract (done)
 
-`packages/contracts/` (Foundry). A single non-custodial contract:
+`packages/contracts/` — `src/BasketRouter.sol`, a single non-custodial contract:
 
-- `buyBasket` — pull `amountUsd` of stablecoin (via the user's approval), swap into
-  each target token per the plan, transfer tokens to the user, refund any dust.
-- `sellBasket` — pull the user's tokens (via approval), swap each back to
-  stablecoin, transfer proceeds to the user.
-- `rebalance` — execute the plan's sells then buys atomically against the user's
-  wallet; everything settles back to the user.
+- `buyBasket(legs, deadline)` — pull the total stablecoin (via the user's approval),
+  swap each leg into its target token **delivered straight to the user**, refund any
+  un-spent stablecoin.
+- `sellBasket(legs, deadline)` — pull the user's tokens (via approval), swap each back
+  to stablecoin sent to the user.
+- `rebalance(sells, buys, cashInStable, deadline)` — run every sell to stablecoin held
+  by the router, then fund the buys from those proceeds plus optional added cash,
+  delivering bought tokens to the user and refunding the remainder. Atomic.
 
-Cross-cutting: **per-swap `minReceived`** (from the planner) + **deadline** +
-**reentrancy guard**; **atomic** (the whole basket succeeds or the tx reverts — no
-half-filled baskets); token/DEX/stablecoin addresses from an **operator-set
-registry**; optional **allowlist** modifier; events for every fill. Tested against
-mock ERC-20s and a mock DEX so no real address is ever required to prove
-correctness.
+Cross-cutting, all implemented: **per-swap `minReceived`** (from the planner) +
+**`deadline`** + **`ReentrancyGuard`**; **atomic** (whole basket or revert); a swap
+**adapter seam** (`ISwapAdapter`) so the DEX is pluggable; an **operator token
+registry** (`allowedToken`) so it can't be pointed at an arbitrary token; an optional
+**user allowlist** (`userAllowlistEnabled`/`allowedUser`) for the eligibility gate;
+**`Pausable`**; and per-fill events. Uses OpenZeppelin `SafeERC20`/`Ownable`.
+
+**Non-custodial, proven:** every happy-path test asserts the router holds zero
+stablecoin and zero tokens afterward. It cannot move funds without the user's ERC-20
+approval and holds no keys.
+
+### Toolchain note
+
+The sandbox blocks Foundry's and solc's binary hosts (403), so tests use the pure-JS
+`solc` compiler + an in-process `ganache` EVM driven by `ethers` — no native builds,
+no downloads. Bytecode targets the `paris` EVM (ganache on the `merge` hardfork). The
+contract is standard Solidity and ports to Foundry unchanged. Run: `pnpm --filter
+@chainscope/contracts test` (11 router cases + a toolchain smoke test; ~50s).
 
 ## Build order
 
-1. **Trade planner + tests** ← _this increment_ (pure maths; audit-ready).
-2. **Router contract + Foundry tests** against mocks (buy → sell → rebalance).
-3. **Wiring**: API endpoint that returns a plan for an index+action; web
-   buy/sell/rebalance flow on the index detail and builder pages (execute button
-   inert until addresses are configured).
+1. **Trade planner + tests** — ✅ done (pure maths; audit-ready).
+2. **Router contract + tests** against mock ERC-20s and a mock DEX — ✅ done
+   (buy / sell / rebalance + slippage, deadline, token-registry, allowlist, pause,
+   owner-only, and reentrancy guards).
+3. **Wiring** (next): API endpoint that returns a plan for an index+action; web
+   buy/sell/rebalance flow on the index detail and builder pages (execute button inert
+   until addresses are configured).
 4. **External audit pass** (same loop as ChainScope), then a testnet dry-run.
 5. Only after that, and with counsel: real addresses + eligibility gating + live.
 
