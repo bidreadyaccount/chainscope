@@ -225,4 +225,33 @@ describe('simulateInvestment', () => {
       }
     }
   });
+
+  it('reconciles to the cent even when some names are unpriced (audit F-05 partial)', () => {
+    const rand = lcg(77);
+    let checked = 0;
+    for (let n0 = 0; n0 < 300; n0++) {
+      const n = 2 + Math.floor(rand() * 6);
+      const cents = 1 + Math.floor(rand() * 1_000_000);
+      const amount = cents / 100;
+      const weights: ConstituentWeight[] = [];
+      const prices = new Map<string, number | null>();
+      let priced = 0;
+      for (let i = 0; i < n; i++) {
+        const id = `s${i}`;
+        weights.push(W(id, 1 + Math.floor(rand() * 9999)));
+        if (rand() < 0.3) {
+          prices.set(id, null); // unpriced → excluded, weight renormalized across the rest
+        } else {
+          prices.set(id, Math.round((0.01 + rand() * 5000) * 100) / 100);
+          priced++;
+        }
+      }
+      if (priced === 0) continue; // nothing to build
+      checked++;
+      const sim = simulateInvestment(amount, weights, prices);
+      const allocated = sim.allocations.reduce((s, a) => s + Math.round(a.allocationUsd * 100), 0);
+      expect(allocated).toBe(cents); // full amount deployed across the priced names, exact
+    }
+    expect(checked).toBeGreaterThan(50);
+  });
 });

@@ -7,6 +7,15 @@ import { apportion } from './math.js';
 
 const total = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0);
 
+/** Deterministic LCG for reproducible fuzz. */
+function lcg(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0xffffffff;
+  };
+}
+
 describe('apportion', () => {
   it('always sums to exactly the total', () => {
     expect(total(apportion(100, [3333, 3333, 3334], ['a', 'b', 'c']))).toBe(100);
@@ -50,5 +59,18 @@ describe('apportion', () => {
     const out = apportion(2, [1, 1, 1, 1, 1], ['a', 'b', 'c', 'd', 'e']);
     expect(total(out)).toBe(2);
     expect(out.filter((x) => x === 1)).toHaveLength(2);
+  });
+
+  it('sums to the total exactly under extreme magnitudes and large N (fuzz)', () => {
+    const rand = lcg(999);
+    for (let k = 0; k < 500; k++) {
+      const n = 1 + Math.floor(rand() * 40);
+      const grand = Math.floor(rand() * 1e12); // up to ~$10B in cents
+      const weights = Array.from({ length: n }, () => rand() * 1e6);
+      const ids = weights.map((_, i) => `n${i}`);
+      const out = apportion(grand, weights, ids);
+      expect(total(out)).toBe(grand);
+      expect(out.every((x) => x >= 0)).toBe(true);
+    }
   });
 });

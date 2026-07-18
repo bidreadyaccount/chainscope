@@ -185,9 +185,12 @@ function buyTrade(p: PricedTarget, amountUsd: number, slipFactor: number): Plann
   };
 }
 
-function planBuy(input: PlanInput, slippageBps: number, dustUsd: number): TradePlan {
+function planBuy(input: PlanInput, slippageBps: number): TradePlan {
   const cash = input.cashUsd ?? 0;
-  if (!Number.isFinite(cash) || cash <= 0) return fail('BUY', 'INVALID_INPUT', slippageBps);
+  // Reject sub-cent cash too: it apportions to 0 cents and would otherwise return an
+  // empty "success" with no signal (audit F2, mirrors the /simulate $0.01 floor).
+  if (!Number.isFinite(cash) || Math.round(cash * 100) < 1)
+    return fail('BUY', 'INVALID_INPUT', slippageBps);
 
   const { priced, excluded } = resolveTargets(input.targets, input.prices);
   if (priced.length === 0) return fail('BUY', 'NO_PRICED_TARGETS', slippageBps, excluded);
@@ -205,7 +208,9 @@ function planBuy(input: PlanInput, slippageBps: number, dustUsd: number): TradeP
     const p = priced[i]!;
     const amountUsd = cents[i]! / 100;
     targetUsd.push({ stockTokenId: p.stockTokenId, ticker: p.ticker, usd: amountUsd });
-    if (amountUsd < dustUsd) continue;
+    // Skip only zero-cent slices; never drop a positive cent slice, so a BUY always
+    // conserves the cash EXACTLY regardless of dustUsd (audit F3).
+    if (amountUsd <= 0) continue;
     trades.push(buyTrade(p, amountUsd, slipFactor));
   }
   return makePlan({ action: 'BUY', trades, excluded, targetUsd, investedUsd: cash, slippageBps });
@@ -223,7 +228,7 @@ function planSell(input: PlanInput, slippageBps: number, dustUsd: number): Trade
       continue;
     }
     const amountUsd = h.qty * pr.price;
-    if (amountUsd < dustUsd) continue;
+    if (!Number.isFinite(amountUsd) || amountUsd < dustUsd) continue; // finite guard (audit F5)
     trades.push({
       stockTokenId: h.stockTokenId,
       ticker: h.ticker,
@@ -267,7 +272,8 @@ function planRebalance(
   }
 
   const portfolioUsd = heldPricedUsd + cash;
-  if (!(portfolioUsd > 0)) return fail('REBALANCE', 'INVALID_INPUT', slippageBps, excluded);
+  if (!(portfolioUsd > 0) || !Number.isFinite(portfolioUsd))
+    return fail('REBALANCE', 'INVALID_INPUT', slippageBps, excluded);
 
   const { priced, excluded: targetExcluded } = resolveTargets(input.targets, input.prices);
   for (const e of targetExcluded)
@@ -301,7 +307,9 @@ function planRebalance(
     const tgt = targetUsdMap.get(id) ?? 0; // held but not in target ⇒ sell to zero
     const delta = tgt - cur;
     const mag = Math.abs(delta);
-    if (mag < band || mag < dustUsd) continue; // within the no-trade band ⇒ leave alone
+    // Zero delta or within-band ⇒ leave alone. Skipping the exact-zero case keeps it out
+    // of the trade list so an on-target book reports ALREADY_BALANCED (audit F1).
+    if (!(mag > 0) || mag < band || mag < dustUsd) continue;
     const price = priceOf.get(id)!;
     const ticker = tickerOf.get(id) ?? id;
     const estQty = mag / price;
@@ -344,7 +352,7 @@ export function planTrades(input: PlanInput): TradePlan {
 
   switch (input.action) {
     case 'BUY':
-      return planBuy(input, slippageBps, dustUsd);
+      return planBuy(input, slippageBps);
     case 'SELL':
       return planSell(input, slippageBps, dustUsd);
     case 'REBALANCE':

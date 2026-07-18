@@ -117,6 +117,10 @@ export interface PlanInput {
    * per-name target/current gap smaller than this is left alone to avoid churn.
    */
   readonly rebalanceBandBps?: number;
-  /** Trades below this USD value are treated as dust and dropped (default 0.01). */
+  /**
+   * Dust floor (USD, default 0.01) for pruning uneconomic SELL/REBALANCE trades below
+   * this value. A BUY never drops a positive cent slice — it conserves the cash exactly
+   * — so only zero-cent slices are skipped there.
+   */
   readonly dustUsd?: number;
 }

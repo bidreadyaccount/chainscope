@@ -86,6 +86,33 @@ describe('planTrades — BUY', () => {
       'INVALID_INPUT',
     );
   });
+
+  it('rejects sub-cent cash rather than a silent empty plan (audit F2)', () => {
+    const plan = planTrades({
+      action: 'BUY',
+      holdings: [],
+      targets: [t('AAPL', 10000)],
+      prices: { AAPL: 100 },
+      cashUsd: 0.004, // rounds to 0 cents
+    });
+    expect(plan.ok).toBe(false);
+    expect(plan.error).toBe('INVALID_INPUT');
+  });
+
+  it('conserves the cash exactly even with a raised dust floor (audit F3)', () => {
+    const plan = planTrades({
+      action: 'BUY',
+      holdings: [],
+      targets: [t('BIG', 9990), t('TINY', 10)], // TINY would be a $1 slice
+      prices: { BIG: 100, TINY: 100 },
+      cashUsd: 1000,
+      dustUsd: 5,
+    });
+    expect(plan.ok).toBe(true);
+    const cents = plan.trades.reduce((s, x) => s + Math.round(x.amountUsd * 100), 0);
+    expect(cents).toBe(100000); // still exactly $1000; the $1 slice is not silently dropped
+    expect(plan.trades.map((x) => x.ticker).sort()).toEqual(['BIG', 'TINY']);
+  });
 });
 
 describe('planTrades — SELL', () => {
@@ -192,6 +219,20 @@ describe('planTrades — REBALANCE', () => {
     expect(plan.ok).toBe(true);
     expect(plan.trades).toHaveLength(0);
     expect(plan.note).toBe('ALREADY_BALANCED');
+  });
+
+  it('flags ALREADY_BALANCED when exactly on target with band=0/dust=0 (audit F1)', () => {
+    const plan = planTrades({
+      action: 'REBALANCE',
+      holdings: [h('AAPL', 5), h('MSFT', 5)], // $500 / $500
+      targets: [t('AAPL', 5000), t('MSFT', 5000)], // target $500 / $500
+      prices: { AAPL: 100, MSFT: 100 },
+      rebalanceBandBps: 0,
+      dustUsd: 0,
+    });
+    expect(plan.ok).toBe(true);
+    expect(plan.trades).toHaveLength(0);
+    expect(plan.note).toBe('ALREADY_BALANCED'); // zero deltas must not suppress the note
   });
 
   it('reconciles: applying the plan moves every name to its target (fuzz)', () => {
