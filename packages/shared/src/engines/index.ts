@@ -10,3 +10,4 @@ export * from './metrics/index.js';
 export * from './scoring/index.js';
 export * from './explanations/index.js';
 export * from './index-engine/index.js';
+export * from './trade-planner/index.js';

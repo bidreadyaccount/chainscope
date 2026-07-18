@@ -28,7 +28,7 @@ Robinhood Chain RPC/WS ──▶ apps/indexer ──┐            ┌──▶ 
 | `apps/web`          | Next.js 15 App Router dashboard (dark terminal UI, live WS updates)                                                            |
 | `apps/api`          | Fastify v5 — REST + WebSocket + Redis rankings + demo streaming pipeline                                                       |
 | `apps/indexer`      | viem-based chain indexer: providers, Uniswap V2/V3 adapters, reorg-safe checkpointing, backfill                                |
-| `packages/shared`   | Types, Zod schemas, engines (classification, cost-basis P&L, metrics, scoring, explanations, **index engine**), demo generator |
+| `packages/shared`   | Types, Zod schemas, engines (classification, cost-basis P&L, metrics, scoring, explanations, **index engine**, **trade planner**), demo generator |
 | `packages/database` | Prisma 7 schema (22 models incl. stock-token index layer), migrations, seed                                                    |
 | `packages/config`   | Chain config, env validation, every threshold/weight in one place                                                              |
 
@@ -65,7 +65,7 @@ With no pools configured the indexer logs `LIVE DECODING INACTIVE` and tracks th
 ```bash
 pnpm -r typecheck   # strict TS, 6 projects
 pnpm lint           # eslint flat config
-pnpm test           # vitest: 376 tests (engines, builder/simulator, API, indexer, web nav smoke)
+pnpm test           # vitest: 398 tests (engines, builder/simulator, trade planner, API, indexer, web nav smoke)
 pnpm --filter @chainscope/web build
 ```
 
@@ -73,6 +73,7 @@ pnpm --filter @chainscope/web build
 
 - `BUILD_BRIEF.md` — architect's contract (scope, guardrails, phase plan)
 - `docs/SPEC.md` — full product spec; `docs/handoff/PHASE_1..5.md` — per-phase implementation notes
+- `docs/handoff/BASKET_ROUTER.md` — design for the buyable (non-custodial one-click buy/sell/rebalance) layer
 - Methodology is served at `/api/v1/methodology` and rendered at `/methodology` — generated from config thresholds
   so docs cannot drift from the engines
 
