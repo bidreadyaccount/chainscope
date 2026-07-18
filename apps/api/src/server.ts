@@ -20,6 +20,7 @@ import { RankingsService } from './services/rankings.js';
 import { PubSub } from './services/pubsub.js';
 import { TokenReadService } from './services/token-read.js';
 import { WalletReadService } from './services/wallet-read.js';
+import { IndexReadService } from './services/index-read.js';
 import { Pipeline } from './pipeline/pipeline.js';
 import { DemoStreamService } from './pipeline/demo-stream.js';
 import { WsHub } from './ws/hub.js';
@@ -89,6 +90,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
   const pubsub = new PubSub(redis);
   const tokens = new TokenReadService(prisma, meta, clock);
   const wallets = new WalletReadService(prisma, meta, clock);
+  const indexes = new IndexReadService(prisma);
   const wsHub = new WsHub({ redisSub, logger: app.log });
   const pipeline = new Pipeline({
     prisma,
@@ -120,6 +122,7 @@ export async function buildServer(opts: BuildServerOptions = {}): Promise<Fastif
     pubsub,
     tokens,
     wallets,
+    indexes,
     pipeline,
     stream,
     wsHub,

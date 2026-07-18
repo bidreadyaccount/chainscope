@@ -213,4 +213,94 @@ export const api = {
     get<Paginated<WalletPosition>>(`/api/v1/wallets/${address}/positions`),
   status: () => get<ApiStatus>(`/api/v1/status`),
   methodology: () => get<Record<string, unknown>>(`/api/v1/methodology`),
+  indexes: () => get<Paginated<IndexListItem>>(`/api/v1/indexes`),
+  index: (slug: string) => get<IndexDetail>(`/api/v1/indexes/${slug}`),
+  stocks: (sector?: string) =>
+    get<Paginated<StockRow>>(
+      `/api/v1/stocks${sector ? `?sector=${encodeURIComponent(sector)}` : ''}`,
+    ),
+  stock: (ticker: string) => get<StockDetail>(`/api/v1/stocks/${ticker}`),
 };
+
+export interface IndexListItem {
+  slug: string;
+  name: string;
+  symbol: string;
+  category: string | null;
+  methodology: string;
+  constituentCount: number;
+  latestLevel: number | null;
+  baseValue: number;
+  return30d: number | null;
+  returnYtd: number | null;
+  annualizedVolatility: number | null;
+  benchmark: string | null;
+  isDemo: boolean;
+}
+
+export interface IndexConstituentView {
+  ticker: string;
+  companyName: string;
+  sector: string;
+  weightBps: number;
+  priceUsd: number | null;
+  marketCapUsd: number | null;
+  dividendYield: number | null;
+  colorTheme: string | null;
+  riskRating: string | null;
+}
+
+export interface IndexDetail {
+  slug: string;
+  name: string;
+  symbol: string;
+  description: string | null;
+  category: string | null;
+  methodology: string;
+  maxWeightBps: number;
+  rebalanceSchedule: string;
+  benchmark: string | null;
+  baseValue: number;
+  isDemo: boolean;
+  performance: {
+    returns: Record<string, number | null>;
+    annualizedVolatility: number | null;
+    maxDrawdown: number | null;
+    latestLevel: number | null;
+    firstLevel: number | null;
+  };
+  concentration: { top1Bps: number; top5Bps: number; hhi: number; effectiveN: number };
+  sectorAllocation: Array<{ sector: string; weightBps: number }>;
+  constituents: IndexConstituentView[];
+  navHistory: Array<{ takenAt: string; level: number }>;
+}
+
+export interface StockRow {
+  ticker: string;
+  companyName: string;
+  sector: string;
+  industry: string | null;
+  priceUsd: number | null;
+  priceConfidence: number;
+  marketCapUsd: number | null;
+  dividendYield: number | null;
+  volatility: number | null;
+  riskRating: string | null;
+  colorTheme: string | null;
+  oracleStatus: string;
+  isDemo: boolean;
+}
+
+export interface StockDetail extends StockRow {
+  description: string | null;
+  contractAddress: string | null;
+  priceFeedAddress: string | null;
+  decimals: number;
+  sharesOutstanding: string | null;
+  assetClass: string;
+  country: string;
+  currency: string;
+  tradingEnabled: boolean;
+  explorer: { token: string | null };
+  memberOfIndexes: Array<{ slug: string; name: string; symbol: string; weightBps: number }>;
+}

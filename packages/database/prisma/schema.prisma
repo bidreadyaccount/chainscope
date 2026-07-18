@@ -51,6 +51,7 @@ model Chain {
   dexes         Dex[]
   checkpoints   BlockCheckpoint[]
   indexerErrors IndexerError[]
+  stockTokens   StockToken[]
 }
 
 model BlockCheckpoint {
@@ -414,4 +415,122 @@ model IndexerError {
   chain Chain @relation(fields: [chainId], references: [id], onDelete: Cascade)
 
   @@index([chainId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Stock-token index layer (analytics/visualization only — no custody, no vault,
+// no ERC-20 index token). Users own the underlying stock tokens directly; this
+// layer describes canonical stock-token metadata and curated index baskets, and
+// values them from stock-token prices. Demo data is clearly illustrative and
+// uses no invented real Robinhood Chain / stock-token addresses.
+// ---------------------------------------------------------------------------
+
+// Canonical registry of a tokenized-stock asset (Module 3 fields).
+model StockToken {
+  id               String   @id @default(cuid())
+  chainId          Int
+  ticker           String // e.g. AAPL
+  companyName      String
+  sector           String
+  industry         String?
+  description      String?
+  // Contract/price-feed addresses are NULL until verified addresses are supplied
+  // (never invented). Demo rows carry clearly-fake 0xDEMO… addresses + isDemo.
+  contractAddress  String?
+  decimals         Int      @default(18)
+  priceFeedAddress String?
+  // Latest cached USD price for the underlying share + derived fields (Float =
+  // derived display values, not raw onchain balances).
+  priceUsd          Float?
+  priceConfidence   Int      @default(0)
+  marketCapUsd      Float?
+  sharesOutstanding String? // raw integer as String
+  dividendYield     Float?
+  // 30d annualized volatility estimate (fraction, e.g. 0.28), used by
+  // inverse-volatility index weighting.
+  volatility     Float?
+  assetClass     String   @default("EQUITY")
+  country        String   @default("US")
+  currency       String   @default("USD")
+  riskRating     String? // e.g. LOW | MEDIUM | HIGH (informational)
+  colorTheme     String?
+  tradingEnabled Boolean  @default(true)
+  oracleStatus   String   @default("UNKNOWN") // OK | STALE | PAUSED | UNKNOWN
+  enabled        Boolean  @default(true)
+  isDemo         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  chain        Chain             @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  constituents IndexConstituent[]
+
+  @@unique([chainId, ticker])
+  @@index([sector])
+}
+
+// A curated (or user-built, round 2) index basket.
+model Index {
+  id                String   @id @default(cuid())
+  slug              String   @unique // e.g. mag7, ai-index
+  name              String
+  symbol            String // e.g. MAG7
+  description       String?
+  category          String? // e.g. Thematic | Broad | Dividend
+  // Weighting methodology: EQUAL | MARKET_CAP | PRICE | INVERSE_VOL | CAP_CAPPED.
+  methodology       String
+  // Max single-constituent weight in basis points (for CAP_CAPPED / caps).
+  maxWeightBps      Int      @default(10000)
+  rebalanceSchedule String   @default("QUARTERLY") // informational
+  benchmark         String? // e.g. SPY | QQQ (informational comparison)
+  // Divisor makes the index level continuous across rebalances/constituent
+  // changes (classic index-divisor methodology). baseValue is the level at
+  // inception (e.g. 1000).
+  baseValue    Float    @default(1000)
+  divisor      Float?
+  isCurated    Boolean  @default(true)
+  isDemo       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  constituents  IndexConstituent[]
+  navSnapshots  IndexNavSnapshot[]
+
+  @@index([category])
+}
+
+// Membership of a stock token in an index, with its target weight.
+model IndexConstituent {
+  id            String   @id @default(cuid())
+  indexId       String
+  stockTokenId  String
+  // Target weight in basis points (sum across an index = 10000). Stored so a
+  // fixed-weight index is reproducible; computed methodologies recompute on
+  // rebalance and persist the result here.
+  targetWeightBps Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  index      Index      @relation(fields: [indexId], references: [id], onDelete: Cascade)
+  stockToken StockToken @relation(fields: [stockTokenId], references: [id], onDelete: Cascade)
+
+  @@unique([indexId, stockTokenId])
+  @@index([stockTokenId])
+}
+
+// Historical index level (NAV) snapshot for performance charts.
+model IndexNavSnapshot {
+  id        String   @id @default(cuid())
+  indexId   String
+  // Index level (e.g. 1042.31). navUsd is the notional basket value used to
+  // derive it. Both Float (derived display values).
+  level      Float
+  navUsd     Float
+  divisor    Float
+  takenAt    DateTime
+  createdAt  DateTime @default(now())
+
+  index Index @relation(fields: [indexId], references: [id], onDelete: Cascade)
+
+  @@unique([indexId, takenAt])
+  @@index([indexId, takenAt])
 }

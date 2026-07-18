@@ -11,6 +11,7 @@ import type { RankingsService } from './services/rankings.js';
 import type { PubSub } from './services/pubsub.js';
 import type { TokenReadService } from './services/token-read.js';
 import type { WalletReadService } from './services/wallet-read.js';
+import type { IndexReadService } from './services/index-read.js';
 import type { Pipeline } from './pipeline/pipeline.js';
 import type { DemoStreamService } from './pipeline/demo-stream.js';
 import type { WsHub } from './ws/hub.js';
@@ -25,6 +26,7 @@ export interface Services {
   readonly pubsub: PubSub;
   readonly tokens: TokenReadService;
   readonly wallets: WalletReadService;
+  readonly indexes: IndexReadService;
   readonly pipeline: Pipeline;
   readonly stream: DemoStreamService | null;
   readonly wsHub: WsHub;

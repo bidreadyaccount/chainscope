@@ -8,6 +8,11 @@ deterministic, threshold-driven explanations (no LLM-generated market commentary
 
 Read-only analytics and decision support. **Not financial advice.** No custody, no keys, no trading.
 
+It also includes a **stock-token index layer**: a canonical registry of tokenized-stock assets and
+curated index baskets (Magnificent 7, AI & Compute, Semiconductors, …) valued by a pure, tested index
+engine — again analytics only, users hold the underlying stock tokens directly (no vault, no index
+token). See `docs/handoff/INDEX_LAYER.md`.
+
 ## Architecture
 
 ```
@@ -18,14 +23,14 @@ Robinhood Chain RPC/WS ──▶ apps/indexer ──┐            ┌──▶ 
                                            └─▶ Postgres + Redis ──▶ apps/web (Next.js dashboard)
 ```
 
-| Package             | What it is                                                                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `apps/web`          | Next.js 15 App Router dashboard (dark terminal UI, live WS updates)                                          |
-| `apps/api`          | Fastify v5 — REST + WebSocket + Redis rankings + demo streaming pipeline                                     |
-| `apps/indexer`      | viem-based chain indexer: providers, Uniswap V2/V3 adapters, reorg-safe checkpointing, backfill              |
-| `packages/shared`   | Types, Zod schemas, engines (classification, cost-basis P&L, metrics, scoring, explanations), demo generator |
-| `packages/database` | Prisma 7 schema (18 models), migrations, seed                                                                |
-| `packages/config`   | Chain config, env validation, every threshold/weight in one place                                            |
+| Package             | What it is                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/web`          | Next.js 15 App Router dashboard (dark terminal UI, live WS updates)                                                            |
+| `apps/api`          | Fastify v5 — REST + WebSocket + Redis rankings + demo streaming pipeline                                                       |
+| `apps/indexer`      | viem-based chain indexer: providers, Uniswap V2/V3 adapters, reorg-safe checkpointing, backfill                                |
+| `packages/shared`   | Types, Zod schemas, engines (classification, cost-basis P&L, metrics, scoring, explanations, **index engine**), demo generator |
+| `packages/database` | Prisma 7 schema (22 models incl. stock-token index layer), migrations, seed                                                    |
+| `packages/config`   | Chain config, env validation, every threshold/weight in one place                                                              |
 
 ## Quick start (demo mode — no RPC keys needed)
 
@@ -60,7 +65,7 @@ With no pools configured the indexer logs `LIVE DECODING INACTIVE` and tracks th
 ```bash
 pnpm -r typecheck   # strict TS, 6 projects
 pnpm lint           # eslint flat config
-pnpm test           # vitest: 282 tests (engines, API integration, indexer, e2e demo path)
+pnpm test           # vitest: 318 tests (engines incl. index engine, API integration, indexer, e2e demo path)
 pnpm --filter @chainscope/web build
 ```
 

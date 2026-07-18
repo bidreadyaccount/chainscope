@@ -6,6 +6,7 @@ import { rankingRoutes } from './rankings.js';
 import { tradeRoutes } from './trades.js';
 import { walletRoutes } from './wallets.js';
 import { methodologyRoutes } from './methodology.js';
+import { indexRoutes } from './indexes.js';
 import { writeRoutes } from './writes.js';
 
 /**
@@ -21,5 +22,6 @@ export const apiRoutes: FastifyPluginAsync = async (app) => {
   await app.register(tradeRoutes);
   await app.register(walletRoutes);
   await app.register(methodologyRoutes);
+  await app.register(indexRoutes);
   await app.register(writeRoutes);
 };
