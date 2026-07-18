@@ -226,6 +226,24 @@ describe('computePerformance', () => {
     expect(computePerformance(pts).returns['ytd']).toBeCloseTo(130 / 110 - 1, 6);
   });
 
+  it('YTD rejects an arbitrarily stale pre-January reference (audit R-01)', () => {
+    // Only reference before year start is Dec 1 (31 days stale) — must NOT be
+    // labeled YTD (it is a 7-month return). Tolerance is 10 days.
+    const pts: PerformancePoint[] = [
+      { takenAt: Date.UTC(2025, 11, 1), level: 100 }, // Dec 1 2025
+      { takenAt: Date.UTC(2026, 6, 1), level: 150 }, // Jul 1 2026
+    ];
+    expect(computePerformance(pts).returns['ytd']).toBeNull();
+  });
+
+  it('YTD accepts a reference within tolerance of year start (Dec 29)', () => {
+    const pts: PerformancePoint[] = [
+      { takenAt: Date.UTC(2025, 11, 29), level: 100 }, // Dec 29 2025 (3 days stale)
+      { takenAt: Date.UTC(2026, 5, 1), level: 120 },
+    ];
+    expect(computePerformance(pts).returns['ytd']).toBeCloseTo(0.2, 6);
+  });
+
   it('duplicate timestamps are de-duplicated (last-write-wins), no zero-interval blowup', () => {
     const pts: PerformancePoint[] = [
       { takenAt: t0, level: 100 },

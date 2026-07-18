@@ -13,6 +13,12 @@ const tickerParam = z.object({ ticker: z.string().min(1).max(16) });
 const stockQuery = z.object({ sector: z.string().min(1).max(64).optional() });
 
 const INDEX_METHODOLOGIES = ['EQUAL', 'MARKET_CAP', 'PRICE', 'INVERSE_VOL', 'CAP_CAPPED'] as const;
+
+const hasDupes = (xs: string[]): boolean => new Set(xs).size !== xs.length;
+
+// Input consistency guard (audit R-03 + hardening note): reject case-insensitive
+// duplicate tickers, and require every manual-weight ticker to appear in `tickers`
+// (no silently-filtered manual entries).
 const previewBody = z
   .object({
     tickers: z.array(z.string().min(1).max(16)).min(1).max(100),
@@ -25,7 +31,36 @@ const previewBody = z
       .optional(),
     maxWeightBps: z.number().int().min(1).max(10000).optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    const tickersUpper = body.tickers.map((t) => t.toUpperCase());
+    if (hasDupes(tickersUpper)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tickers'],
+        message: 'Duplicate tickers are not allowed',
+      });
+    }
+    if (body.manualWeights) {
+      const mwUpper = body.manualWeights.map((w) => w.ticker.toUpperCase());
+      if (hasDupes(mwUpper)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['manualWeights'],
+          message: 'Duplicate tickers in manualWeights are not allowed',
+        });
+      }
+      const inTickers = new Set(tickersUpper);
+      const orphans = mwUpper.filter((t) => !inTickers.has(t));
+      if (orphans.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['manualWeights'],
+          message: `manualWeights tickers must all be listed in tickers: ${[...new Set(orphans)].join(', ')}`,
+        });
+      }
+    }
+  });
 const simulateQuery = z.object({
   amount: z.coerce.number().finite().positive().max(1_000_000_000),
 });

@@ -149,6 +149,25 @@ describe('POST /indexes/preview (builder)', () => {
     const { status } = await post('/api/v1/indexes/preview', { tickers: [] });
     expect(status).toBe(400);
   });
+
+  it('rejects duplicate tickers (400) — audit R-03', async () => {
+    const { status } = await post('/api/v1/indexes/preview', {
+      tickers: ['AAPL', 'aapl', 'MSFT'],
+      methodology: 'EQUAL',
+    });
+    expect(status).toBe(400);
+  });
+
+  it('rejects manualWeights tickers not present in tickers (400)', async () => {
+    const { status } = await post('/api/v1/indexes/preview', {
+      tickers: ['AAPL', 'MSFT'],
+      manualWeights: [
+        { ticker: 'AAPL', weight: 50 },
+        { ticker: 'NVDA', weight: 50 },
+      ],
+    });
+    expect(status).toBe(400);
+  });
 });
 
 describe('GET /indexes/:slug/simulate', () => {
@@ -160,6 +179,11 @@ describe('GET /indexes/:slug/simulate', () => {
     const totalAllocated = allocations.reduce((s, a) => s + a.allocationUsd, 0);
     expect(totalAllocated).toBeCloseTo(5000, 0); // fully invested
     expect((body.valueSeries as unknown[]).length).toBeGreaterThan(30);
+    // All demo constituents are priced → projection is available and consistent.
+    expect(body.projectionAvailable).toBe(true);
+    // Allocations expose realized (renormalized) weight alongside target weight.
+    const alloc0 = (body.allocations as Array<{ realizedWeightBps: number }>)[0]!;
+    expect(typeof alloc0.realizedWeightBps).toBe('number');
     // Benchmark comparison is honestly flagged unavailable (not fabricated).
     expect(body.benchmarkComparisonAvailable).toBe(false);
   });

@@ -129,3 +129,31 @@ are fixed and covered by new tests (engine tests grew 27 → 61; full suite 318 
 - Web: `/build` (pick names, methodology or manual weights, live preview) and a **Simulator** panel on
   the index detail page. Benchmark comparison is shown only when a real benchmark series exists —
   otherwise the UI states it is unavailable rather than fabricating one (guardrail).
+
+---
+
+## Re-audit remediation (round 2)
+
+The external re-audit of commit `f351a3c` confirmed W-01/W-02/V-01/W-03 fully fixed (0 sum/cap
+violations across 5,000 fuzz trials) and found 4 new Medium issues in the builder/simulator work. All
+fixed (full suite 359 → **372**; engine 61 → 65; new web smoke test project):
+
+- **R-04 (Med) — `/build` shipped as a dead link.** Root cause: root `.gitignore` had a bare `build/`
+  rule that ignored the App Router route directory `apps/web/src/app/build/`, so the page existed
+  locally (and in local builds) but was never committed/pushed. Fixed the ignore rule (negation for the
+  source route), committed the page, and added a **nav-route smoke test**
+  (`apps/web/src/nav-routes.smoke.test.ts`, new `web` vitest project) that fails if any nav `href`
+  lacks an App Router `page.tsx` — so this class of dead-link regression is caught in CI.
+- **R-01 (Med) — YTD accepted an arbitrarily stale pre-January reference.** `computePerformance` now
+  requires the YTD reference to be within `YTD_REFERENCE_TOLERANCE_DAYS` (10) of Jan 1, else returns
+  null (Dec 1 → 7-month "YTD" is rejected; Dec 29–31 accepted). Tests cover both.
+- **R-02 (Med) — simulator projected a different portfolio than it allocated.** When a constituent is
+  unpriced, the basket is renormalized to priced names, but the supplied level series is the FULL
+  index's. `simulateInvestment` now suppresses the projection (`projectionAvailable:false` + reason,
+  empty series, null totals) whenever anything is excluded, and each allocation exposes
+  `realizedWeightBps` alongside the target `weightBps`. API + UI propagate the flag.
+- **R-03 (Med) — duplicate manual constituents distorted concentration.** `buildManualWeights` now
+  aggregates duplicate `stockTokenId` (sums weights → one exposure). The API `/indexes/preview` schema
+  additionally rejects case-insensitive duplicate tickers and any `manualWeights` ticker not present in
+  `tickers` (closes the silent-filter inconsistency the audit noted). Tests cover aggregation,
+  collapse-below-minimum, and both 400s.

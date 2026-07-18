@@ -64,12 +64,24 @@ export function Simulator({ slug }: { slug: string }) {
               <div className="text-[11px] uppercase tracking-wider text-muted">
                 Value over the series
               </div>
-              <div className="text-lg">
-                {usd(sim.data.finalValueUsd)}{' '}
-                {sim.data.totalReturn !== null ? (
-                  <FlowText value={sim.data.totalReturn} text={`(${pct(sim.data.totalReturn)})`} />
-                ) : null}
-              </div>
+              {sim.data.projectionAvailable ? (
+                <div className="text-lg">
+                  {usd(sim.data.finalValueUsd)}{' '}
+                  {sim.data.totalReturn !== null ? (
+                    <FlowText
+                      value={sim.data.totalReturn}
+                      text={`(${pct(sim.data.totalReturn)})`}
+                    />
+                  ) : null}
+                </div>
+              ) : (
+                <div
+                  className="text-sm text-warn"
+                  title={sim.data.projectionUnavailableReason ?? ''}
+                >
+                  Not shown — a holding has no usable price, so the basket differs from the index.
+                </div>
+              )}
             </div>
             <div>
               <div className="text-[11px] uppercase tracking-wider text-muted">Invested</div>

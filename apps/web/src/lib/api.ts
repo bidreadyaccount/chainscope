@@ -277,6 +277,8 @@ export interface SimulationResult {
   benchmarkComparisonAvailable: boolean;
   amountUsd: number;
   investedWeightBps: number;
+  projectionAvailable: boolean;
+  projectionUnavailableReason: string | null;
   finalValueUsd: number | null;
   totalReturn: number | null;
   excluded: Array<{ ticker: string; reason: string }>;
@@ -285,6 +287,7 @@ export interface SimulationResult {
     companyName: string;
     sector: string;
     weightBps: number;
+    realizedWeightBps: number;
     allocationUsd: number;
     shares: number;
     priceUsd: number;

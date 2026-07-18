@@ -245,17 +245,25 @@ export function buildManualWeights(
   entries: readonly ManualWeightInput[],
   constraints: IndexConstraints = DEFAULT_INDEX_CONSTRAINTS,
 ): WeightResult {
-  const included: ManualWeightInput[] = [];
   const excluded: ExcludedConstituent[] = [];
+  // Aggregate duplicate identities by summing their weights (audit R-03): the same
+  // stock entered twice is ONE economic exposure, so it must not be counted as two
+  // names (which would understate concentration). First-seen order is preserved.
+  const byId = new Map<string, ManualWeightInput>();
   for (const e of entries) {
     if (!Number.isFinite(e.weight)) {
       excluded.push({ stockTokenId: e.stockTokenId, ticker: e.ticker, reason: 'NON_FINITE' });
-    } else if (e.weight <= 0) {
-      excluded.push({ stockTokenId: e.stockTokenId, ticker: e.ticker, reason: 'NON_POSITIVE' });
-    } else {
-      included.push(e);
+      continue;
     }
+    if (e.weight <= 0) {
+      excluded.push({ stockTokenId: e.stockTokenId, ticker: e.ticker, reason: 'NON_POSITIVE' });
+      continue;
+    }
+    const existing = byId.get(e.stockTokenId);
+    if (existing) byId.set(e.stockTokenId, { ...existing, weight: existing.weight + e.weight });
+    else byId.set(e.stockTokenId, e);
   }
+  const included: ManualWeightInput[] = [...byId.values()];
 
   if (included.length < constraints.minConstituents) {
     return { methodology: 'MANUAL', weights: [], excluded, ok: false };

@@ -8,6 +8,9 @@ build/
 .next/
 out/
 *.tsbuildinfo
+# ...but keep the Next.js App Router source route `/build` (not a build-output dir)
+!apps/web/src/app/build/
+!apps/web/src/app/build/**
 
 # test / coverage
 coverage/

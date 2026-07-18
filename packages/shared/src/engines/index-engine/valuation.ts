@@ -28,6 +28,12 @@ import type {
 
 const BPS = WEIGHT_DENOMINATOR_BPS;
 const DAY_MS = 86_400_000;
+/**
+ * Max age (days before Jan 1) of an accepted YTD reference point. The last
+ * trading day of the prior year is normally Dec 31 (Dec 29 across a weekend), so
+ * 10 days absorbs weekends/holidays while rejecting a materially stale reference.
+ */
+const YTD_REFERENCE_TOLERANCE_DAYS = 10;
 
 function usablePrice(p: number | null | undefined): number | null {
   return p !== null && p !== undefined && Number.isFinite(p) && p > 0 ? p : null;
@@ -116,10 +122,18 @@ export function computeLevel(
 /**
  * Portfolio simulator: given an investment amount, target weights and current
  * prices, return the per-constituent allocation (USD + fractional shares) and,
- * when an index level series is supplied, the value the same investment would
- * have had over that series (amount · level_t / level_0). Uses `buildBasket`, so
- * unpriced constituents are surfaced (not silently dropped) and the invested
- * portion is renormalized.
+ * when appropriate, the value the same investment would have had over the index
+ * level series (amount · level_t / level_0).
+ *
+ * Each allocation reports both the original `weightBps` and the `realizedWeightBps`
+ * it actually holds after any unpriced-constituent renormalization.
+ *
+ * Consistency guard (audit R-02): the supplied `levelSeries` is the FULL index's
+ * history. If any constituent is excluded now, the constructed (renormalized)
+ * basket is NOT the index, so projecting the index history onto it would describe
+ * a different portfolio than the one allocated. In that case the projection is
+ * suppressed (`projectionAvailable: false`, empty series, null totals) with a
+ * reason, rather than silently mixing two portfolios.
  */
 export function simulateInvestment(
   amountUsd: number,
@@ -133,33 +147,50 @@ export function simulateInvestment(
     stockTokenId: string;
     ticker: string;
     weightBps: number;
+    realizedWeightBps: number;
     allocationUsd: number;
     shares: number;
     priceUsd: number;
   }>;
   excluded: Basket['excluded'];
+  projectionAvailable: boolean;
+  projectionUnavailableReason: string | null;
   valueSeries: Array<{ takenAt: number; valueUsd: number }>;
   finalValueUsd: number | null;
   totalReturn: number | null;
 } {
   const amount = Number.isFinite(amountUsd) && amountUsd > 0 ? amountUsd : 0;
   const basket = buildBasket(weights, prices, amount);
+  const invested = basket.investedWeightBps;
   const allocations = basket.holdings.map((h) => {
     const price = usablePrice(prices.get(h.stockTokenId))!;
+    // Realized weight = the share of the ACTUAL priced basket this holding is,
+    // which differs from the original target weight when names were excluded.
+    const realizedWeightBps = invested > 0 ? Math.round((h.weightBps / invested) * BPS) : 0;
     return {
       stockTokenId: h.stockTokenId,
       ticker: h.ticker,
       weightBps: h.weightBps,
+      realizedWeightBps,
       allocationUsd: round(h.shares * price, 2),
       shares: round(h.shares, 6),
       priceUsd: price,
     };
   });
 
-  const asc = [...levelSeries].sort((a, b) => a.takenAt - b.takenAt);
+  // Only project when the constructed basket IS the full index (nothing excluded).
+  const projectionAvailable = basket.excluded.length === 0 && amount > 0;
+  const projectionUnavailableReason =
+    basket.excluded.length > 0
+      ? 'One or more constituents have no usable price, so the constructed basket differs from the index — projecting the index history onto it would misstate the portfolio.'
+      : amount <= 0
+        ? 'No investment amount.'
+        : null;
+
+  const asc = projectionAvailable ? [...levelSeries].sort((a, b) => a.takenAt - b.takenAt) : [];
   const first = asc.find((p) => p.level > 0) ?? null;
   const valueSeries =
-    first && amount > 0
+    projectionAvailable && first
       ? asc.map((p) => ({
           takenAt: p.takenAt,
           valueUsd: round((amount * p.level) / first.level, 2),
@@ -173,6 +204,8 @@ export function simulateInvestment(
   return {
     amountUsd: amount,
     investedWeightBps: basket.investedWeightBps,
+    projectionAvailable,
+    projectionUnavailableReason,
     allocations,
     excluded: basket.excluded,
     valueSeries,
@@ -286,9 +319,14 @@ export function computePerformance(points: readonly PerformancePoint[]): Perform
       if (p.takenAt <= yearStart) ytdRef = p;
       else break;
     }
-    // YTD requires a real year-start reference; if the series starts after Jan 1
-    // there is no YTD to report (the UI shows "since inception" separately).
-    if (ytdRef && ytdRef.level > 0 && ytdRef !== latest) {
+    // YTD requires a year-start reference that is actually NEAR year start, not an
+    // arbitrarily stale prior-year point (audit R-01). The last trading day before
+    // Jan 1 is normally Dec 31 (Dec 29 across a weekend), so a reference older than
+    // YTD_REFERENCE_TOLERANCE_DAYS before year start is rejected → null, and the UI
+    // shows "since inception" instead.
+    const withinTolerance =
+      ytdRef !== null && yearStart - ytdRef.takenAt <= YTD_REFERENCE_TOLERANCE_DAYS * DAY_MS;
+    if (ytdRef && withinTolerance && ytdRef.level > 0 && ytdRef !== latest) {
       returns['ytd'] = round(latest.level / ytdRef.level - 1, 6);
     }
   }

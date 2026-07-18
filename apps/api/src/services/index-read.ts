@@ -296,6 +296,8 @@ export class IndexReadService {
       benchmarkComparisonAvailable: false,
       amountUsd: sim.amountUsd,
       investedWeightBps: sim.investedWeightBps,
+      projectionAvailable: sim.projectionAvailable,
+      projectionUnavailableReason: sim.projectionUnavailableReason,
       finalValueUsd: sim.finalValueUsd,
       totalReturn: sim.totalReturn,
       excluded: sim.excluded,

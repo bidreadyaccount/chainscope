@@ -65,7 +65,7 @@ With no pools configured the indexer logs `LIVE DECODING INACTIVE` and tracks th
 ```bash
 pnpm -r typecheck   # strict TS, 6 projects
 pnpm lint           # eslint flat config
-pnpm test           # vitest: 359 tests (engines incl. hardened index engine + builder/simulator)
+pnpm test           # vitest: 372 tests (engines, builder/simulator, API, indexer, web nav smoke)
 pnpm --filter @chainscope/web build
 ```
 

@@ -53,6 +53,22 @@ describe('buildManualWeights', () => {
   it('fewer than the minimum valid entries → ok:false', () => {
     expect(buildManualWeights([m('a', 1)]).ok).toBe(false);
   });
+
+  it('aggregates duplicate identities instead of double-counting (audit R-03)', () => {
+    // Same stock entered twice (60 + 40) is ONE exposure, not two names.
+    const r = buildManualWeights([m('a', 60), m('a', 40), m('b', 100)]);
+    expect(r.ok).toBe(true);
+    expect(r.weights).toHaveLength(2); // 'a' collapsed to one
+    const byId = new Map(r.weights.map((w) => [w.stockTokenId, w.weightBps]));
+    expect(byId.get('a')).toBe(5000); // (60+40) vs 100 → 50/50
+    expect(byId.get('b')).toBe(5000);
+    expect(sum(r.weights)).toBe(10000);
+  });
+
+  it('a lone stock duplicated collapses below the minimum → ok:false', () => {
+    // [AAPL 60, AAPL 40] is one unique name, not an index.
+    expect(buildManualWeights([m('a', 60), m('a', 40)]).ok).toBe(false);
+  });
 });
 
 describe('simulateInvestment', () => {
@@ -89,13 +105,20 @@ describe('simulateInvestment', () => {
     ];
     const sim = simulateInvestment(500, [W('a', 10000)], new Map([['a', 50]]), series);
     // 500 · 1210/1000 = 605; total return = +21%.
+    expect(sim.projectionAvailable).toBe(true);
     expect(sim.finalValueUsd).toBe(605);
     expect(sim.totalReturn).toBeCloseTo(0.21, 6);
     expect(sim.valueSeries).toHaveLength(3);
     expect(sim.valueSeries[1]!.valueUsd).toBe(550);
   });
 
-  it('surfaces an unpriced constituent instead of silently miscounting', () => {
+  it('surfaces an unpriced constituent AND suppresses the mismatched projection (audit R-02)', () => {
+    const day = 86_400_000;
+    const t0 = Date.UTC(2026, 0, 1);
+    const series: PerformancePoint[] = [
+      { takenAt: t0, level: 1000 },
+      { takenAt: t0 + day, level: 500 }, // index history (full basket)
+    ];
     const sim = simulateInvestment(
       1000,
       [W('a', 5000), W('b', 5000)],
@@ -103,12 +126,20 @@ describe('simulateInvestment', () => {
         ['a', 100],
         ['b', null],
       ]),
+      series,
     );
     expect(sim.excluded[0]?.ticker).toBe('B');
     expect(sim.investedWeightBps).toBe(5000);
-    // A absorbs the full $1000 (renormalized), 10 shares.
+    // A absorbs the full $1000 (renormalized), 10 shares; realized weight = 100%.
     expect(sim.allocations[0]!.allocationUsd).toBe(1000);
     expect(sim.allocations[0]!.shares).toBeCloseTo(10, 6);
+    expect(sim.allocations[0]!.realizedWeightBps).toBe(10000);
+    // The constructed basket is NOT the index, so no projection is reported
+    // (rather than applying the full-index −50% path to an A-only portfolio).
+    expect(sim.projectionAvailable).toBe(false);
+    expect(sim.projectionUnavailableReason).toBeTruthy();
+    expect(sim.valueSeries).toEqual([]);
+    expect(sim.finalValueUsd).toBeNull();
   });
 
   it('non-positive amount yields zero allocation and null projection', () => {

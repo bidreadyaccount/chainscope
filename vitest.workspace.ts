@@ -6,4 +6,5 @@ export default defineWorkspace([
   'packages/database',
   'apps/api',
   'apps/indexer',
+  'apps/web',
 ]);
