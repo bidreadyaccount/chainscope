@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, BookOpen, Gauge, LayoutGrid, Layers, Radio } from 'lucide-react';
+import { Activity, BookOpen, Gauge, LayoutGrid, Layers, Radio, Wrench } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Badge } from './ui';
 
 const LINKS = [
   { href: '/', label: 'Market', icon: LayoutGrid },
   { href: '/indexes', label: 'Indexes', icon: Layers },
+  { href: '/build', label: 'Builder', icon: Wrench },
   { href: '/trades', label: 'Live Trades', icon: Radio },
   { href: '/methodology', label: 'Methodology', icon: BookOpen },
   { href: '/status', label: 'Status', icon: Gauge },

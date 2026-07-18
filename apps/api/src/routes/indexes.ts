@@ -12,6 +12,24 @@ const slugParam = z.object({ slug: z.string().min(1).max(64) });
 const tickerParam = z.object({ ticker: z.string().min(1).max(16) });
 const stockQuery = z.object({ sector: z.string().min(1).max(64).optional() });
 
+const INDEX_METHODOLOGIES = ['EQUAL', 'MARKET_CAP', 'PRICE', 'INVERSE_VOL', 'CAP_CAPPED'] as const;
+const previewBody = z
+  .object({
+    tickers: z.array(z.string().min(1).max(16)).min(1).max(100),
+    methodology: z.enum(INDEX_METHODOLOGIES).optional(),
+    manualWeights: z
+      .array(
+        z.object({ ticker: z.string().min(1).max(16), weight: z.number().finite().positive() }),
+      )
+      .max(100)
+      .optional(),
+    maxWeightBps: z.number().int().min(1).max(10000).optional(),
+  })
+  .strict();
+const simulateQuery = z.object({
+  amount: z.coerce.number().finite().positive().max(1_000_000_000),
+});
+
 export const indexRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     '/indexes',
@@ -34,6 +52,29 @@ export const indexRoutes: FastifyPluginAsync = async (app) => {
       const detail = await app.services.indexes.detail(slug);
       if (!detail) throw notFound(`Index ${slug} not found`);
       return detail;
+    },
+  );
+
+  // Custom index builder preview — compute-only, no persistence.
+  app.post(
+    '/indexes/preview',
+    { schema: { tags: ['indexes'], summary: 'Preview custom index weights (builder)' } },
+    async (req) => {
+      const body = parseOrThrow(previewBody, req.body, 'body');
+      return app.services.indexes.preview(body);
+    },
+  );
+
+  // Portfolio simulator for an existing index — read-only, no order placed.
+  app.get(
+    '/indexes/:slug/simulate',
+    { schema: { tags: ['indexes'], summary: 'Simulate an investment in an index' } },
+    async (req) => {
+      const { slug } = parseOrThrow(slugParam, req.params, 'params');
+      const { amount } = parseOrThrow(simulateQuery, req.query, 'query');
+      const sim = await app.services.indexes.simulate(slug, amount);
+      if (!sim) throw notFound(`Index ${slug} not found`);
+      return sim;
     },
   );
 

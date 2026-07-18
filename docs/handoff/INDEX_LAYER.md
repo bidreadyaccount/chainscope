@@ -87,3 +87,45 @@ allocation, vs SPY/NASDAQ). The engine already exposes everything both need (`co
 - NAV history uses a buy-and-hold basket between rebalances (no intra-series rebalancing in the demo
   seed); the engine supports rebalancing and the continuity is tested, but the demo seed does not
   schedule mid-series rebalances.
+
+---
+
+## Audit remediation (round 1) + builder/simulator
+
+An external audit of commit `117b4ec` found real defects in the index engine. All confirmed findings
+are fixed and covered by new tests (engine tests grew 27 → 61; full suite 318 → 359).
+
+- **W-01 (High) — non-finite inputs.** `NaN`/`±Infinity` passed the old `<= 0` check and produced
+  `NaN` weights with `ok:true`. Fixed: `basisFor`/`buildManualWeights` reject non-finite with a
+  `NON_FINITE` reason; `computeWeights` validates the normalized total and every fraction, and asserts
+  the exact-10000 sum + cap compliance before returning `ok:true` (else `error:'INVARIANT_FAILED'`).
+  Fuzz test: 1000 random books per methodology, magnitudes 1e-6…1e200.
+- **W-02 (Med) — cap could be exceeded.** The proportional redistribution loop could stop before
+  convergence. Replaced with a finite **water-filling** active-set algorithm (≤ N passes), cap-aware
+  integer rounding (remainder bumps skip names at cap), and an explicit **`CAP_INFEASIBLE`** result
+  when `cap × N < 10000` (no more silently over-cap "equal" book). Fuzz test asserts every returned
+  weight ≤ cap across 1000 random capped books.
+- **V-01 (Med) — missing price silently dropped NAV.** `buildBasket` now excludes unpriced
+  constituents into a surfaced `excluded[]`, reports `investedWeightBps`, and renormalizes the priced
+  names so the basket stays fully invested and the level starts at `baseValue` (not silently below).
+- **V-02 (Med) — stale window returns.** `windowReturn` now returns null when the series doesn't span
+  the horizon or the reference is materially staler than requested (tolerance = max(2d, 50%)); YTD is
+  null unless a real year-start reference exists. Demo history extended to 250 days so YTD is genuine.
+- **W-03 (Low) — order-biased tie-break.** Largest-remainder ties now break on constituent identity,
+  so output is independent of input ordering (permutation test).
+- **S-02 (Low) — duplicate timestamps.** `computePerformance` de-duplicates by timestamp
+  (last-write-wins) before computing returns/volatility.
+- **N-01 (Low).** Documented boundary: `fromRawAmount` is display-only; raw amounts stay string/bigint
+  in storage and on the wire and do not feed index math. (No behavior change; flagged for callers.)
+
+### New: index builder + portfolio simulator (both read-only, engine-backed)
+
+- `buildManualWeights()` — normalizes arbitrary user weights to exactly 10000 bps with the same
+  hardened cap/rounding path. `simulateInvestment()` — splits an amount into per-constituent
+  USD/shares (via `buildBasket`, so unpriced names are surfaced) and projects value over an index
+  level series. Both in `packages/shared/src/engines/index-engine/`, with `builder.test.ts` (9 tests).
+- API: `POST /api/v1/indexes/preview` (compute-only, no persistence) and
+  `GET /api/v1/indexes/:slug/simulate?amount=` (no order placed). 7 new integration tests.
+- Web: `/build` (pick names, methodology or manual weights, live preview) and a **Simulator** panel on
+  the index detail page. Benchmark comparison is shown only when a real benchmark series exists —
+  otherwise the UI states it is unavailable rather than fabricating one (guardrail).

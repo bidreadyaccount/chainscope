@@ -4,10 +4,11 @@
  * `@chainscope/config`; nothing here touches the DB, network or clock.
  */
 export * from './types.js';
-export { computeWeights } from './weights.js';
+export { computeWeights, buildManualWeights, type ManualWeightInput } from './weights.js';
 export {
   buildBasket,
   computeLevel,
+  simulateInvestment,
   computeSectorAllocation,
   computeConcentration,
   computeTurnoverBps,

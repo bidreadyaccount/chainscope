@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { pct, usd } from '@/lib/format';
 import { Badge, Card, ErrorState, FlowText, Hint, Skeleton } from '@/components/ui';
 import { IndexNavChart } from '@/components/index-nav-chart';
+import { Simulator } from '@/components/simulator';
 
 const bpsToPct = (bps: number): string => `${(bps / 100).toFixed(1)}%`;
 
@@ -181,6 +182,8 @@ export default function IndexDetailPage({ params }: { params: Promise<{ slug: st
           </p>
         </Card>
       </div>
+
+      <Simulator slug={idx.slug} />
     </div>
   );
 }

@@ -199,7 +199,9 @@ const indexId = (slug: string): string => `demo_index_${slug}`;
 async function seedStockIndexLayer(now: number): Promise<void> {
   const stocks = generateDemoStocks(Number(process.env.DEMO_SEED ?? 1337));
   const indexDefs = getDemoIndexDefs();
-  const history = generateDemoStockHistory(stocks, now, 120);
+  // 250 trading-ish days so the series spans back past Jan 1 and YTD is real.
+  const HISTORY_DAYS = 250;
+  const history = generateDemoStockHistory(stocks, now, HISTORY_DAYS);
 
   // 1. Stock tokens.
   for (const s of stocks) {
@@ -238,7 +240,7 @@ async function seedStockIndexLayer(now: number): Promise<void> {
   const stockByTicker = new Map(stocks.map((s) => [s.ticker, s]));
   // Group price history by day for NAV series.
   const dayMs = 86_400_000;
-  const days = 120;
+  const days = HISTORY_DAYS;
 
   // 2. Indexes + constituents + NAV snapshots.
   for (const def of indexDefs) {

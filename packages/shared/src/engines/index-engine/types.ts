@@ -27,15 +27,34 @@ export interface ConstituentWeight {
 export interface ExcludedConstituent {
   readonly stockTokenId: string;
   readonly ticker: string;
-  readonly reason: 'MISSING_PRICE' | 'MISSING_MARKET_CAP' | 'MISSING_VOLATILITY' | 'NON_POSITIVE';
+  readonly reason:
+    | 'MISSING_PRICE'
+    | 'MISSING_MARKET_CAP'
+    | 'MISSING_VOLATILITY'
+    | 'NON_POSITIVE'
+    | 'NON_FINITE';
 }
 
+/** Index-level failure reason when weights could not be produced. */
+export type WeightError = 'CAP_INFEASIBLE' | 'INVALID_INPUT' | 'INVARIANT_FAILED';
+
 export interface WeightResult {
-  readonly methodology: IndexMethodology;
+  /** The methodology used, or 'MANUAL' for user-supplied builder weights. */
+  readonly methodology: IndexMethodology | 'MANUAL';
   readonly weights: ConstituentWeight[];
   readonly excluded: ExcludedConstituent[];
   /** True when weights were produced (>= minConstituents survived). */
   readonly ok: boolean;
+  /** Present when ok is false for an index-level reason (not per-constituent). */
+  readonly error?: WeightError;
+}
+
+/** A constituent dropped from a basket at construction, with a reason. */
+export interface ExcludedHolding {
+  readonly stockTokenId: string;
+  readonly ticker: string;
+  readonly weightBps: number;
+  readonly reason: 'MISSING_PRICE' | 'NON_FINITE_PRICE';
 }
 
 /** Notional share holdings that realize a set of weights at given prices. */
@@ -46,6 +65,10 @@ export interface Basket {
     shares: number;
     weightBps: number;
   }>;
+  /** Constituents with no usable price — excluded from the basket, surfaced not silent. */
+  readonly excluded: ExcludedHolding[];
+  /** Sum of the invested constituents' weights (< 10000 when some were excluded). */
+  readonly investedWeightBps: number;
   readonly divisor: number;
   readonly navUsd: number;
   readonly level: number;

@@ -15,6 +15,14 @@ async function json(path: string): Promise<{ status: number; body: Record<string
   return { status: res.statusCode, body: res.json() as Record<string, unknown> };
 }
 
+async function post(
+  path: string,
+  payload: object,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const res = await app.inject({ method: 'POST', url: path, payload: payload as never });
+  return { status: res.statusCode, body: res.json() as Record<string, unknown> };
+}
+
 beforeAll(async () => {
   resetEnvCache();
   app = await buildServer({ env: loadEnv() });
@@ -96,6 +104,73 @@ describe('GET /stocks', () => {
 
   it('unknown stock -> 404', async () => {
     const { status } = await json('/api/v1/stocks/ZZZZ');
+    expect(status).toBe(404);
+  });
+});
+
+describe('POST /indexes/preview (builder)', () => {
+  it('computes weights summing to 10000 for a methodology', async () => {
+    const { status, body } = await post('/api/v1/indexes/preview', {
+      tickers: ['AAPL', 'NVDA', 'JPM'],
+      methodology: 'MARKET_CAP',
+      maxWeightBps: 5000,
+    });
+    expect(status).toBe(200);
+    expect(body.ok).toBe(true);
+    const weights = body.weights as Array<{ weightBps: number }>;
+    expect(weights.reduce((s, w) => s + w.weightBps, 0)).toBe(10000);
+    expect(weights.every((w) => w.weightBps <= 5000)).toBe(true);
+  });
+
+  it('accepts manual weights and reports MANUAL methodology', async () => {
+    const { body } = await post('/api/v1/indexes/preview', {
+      tickers: ['AAPL', 'MSFT'],
+      manualWeights: [
+        { ticker: 'AAPL', weight: 70 },
+        { ticker: 'MSFT', weight: 30 },
+      ],
+    });
+    expect(body.methodology).toBe('MANUAL');
+    const weights = body.weights as Array<{ ticker: string; weightBps: number }>;
+    expect(weights.find((w) => w.ticker === 'AAPL')!.weightBps).toBe(7000);
+  });
+
+  it('reports CAP_INFEASIBLE rather than an over-cap book', async () => {
+    const { body } = await post('/api/v1/indexes/preview', {
+      tickers: ['AAPL', 'MSFT', 'NVDA', 'JPM'],
+      methodology: 'CAP_CAPPED',
+      maxWeightBps: 2000,
+    });
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('CAP_INFEASIBLE');
+  });
+
+  it('rejects an empty ticker list (400)', async () => {
+    const { status } = await post('/api/v1/indexes/preview', { tickers: [] });
+    expect(status).toBe(400);
+  });
+});
+
+describe('GET /indexes/:slug/simulate', () => {
+  it('splits an investment and projects value over the index history', async () => {
+    const { status, body } = await json('/api/v1/indexes/mag7/simulate?amount=5000');
+    expect(status).toBe(200);
+    expect(body.amountUsd).toBe(5000);
+    const allocations = body.allocations as Array<{ allocationUsd: number }>;
+    const totalAllocated = allocations.reduce((s, a) => s + a.allocationUsd, 0);
+    expect(totalAllocated).toBeCloseTo(5000, 0); // fully invested
+    expect((body.valueSeries as unknown[]).length).toBeGreaterThan(30);
+    // Benchmark comparison is honestly flagged unavailable (not fabricated).
+    expect(body.benchmarkComparisonAvailable).toBe(false);
+  });
+
+  it('rejects a non-positive amount (400)', async () => {
+    const { status } = await json('/api/v1/indexes/mag7/simulate?amount=-5');
+    expect(status).toBe(400);
+  });
+
+  it('unknown index -> 404', async () => {
+    const { status } = await json('/api/v1/indexes/nope/simulate?amount=100');
     expect(status).toBe(404);
   });
 });

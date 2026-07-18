@@ -19,6 +19,7 @@ import type {
   ConcentrationResult,
   ConstituentInput,
   ConstituentWeight,
+  ExcludedHolding,
   LevelResult,
   PerformancePoint,
   PerformanceResult,
@@ -26,43 +27,158 @@ import type {
 } from './types.js';
 
 const BPS = WEIGHT_DENOMINATOR_BPS;
+const DAY_MS = 86_400_000;
+
+function usablePrice(p: number | null | undefined): number | null {
+  return p !== null && p !== undefined && Number.isFinite(p) && p > 0 ? p : null;
+}
 
 /**
- * Build the notional basket that realizes `weights` at the given constituent
- * prices, scaled so NAV = baseValue and level = baseValue (divisor = 1).
- * Constituents without a positive price are dropped from the basket (they carry
- * no shares); their weight is treated as uninvested — callers should ensure
- * priced constituents were used to build the weights.
+ * Build the notional basket that realizes `weights` at the given prices, scaled
+ * so the invested basket's NAV = level = baseValue at inception (divisor = 1).
+ *
+ * Hardened after audit V-01: constituents with no usable price are NOT silently
+ * given zero shares while keeping their weight. They are excluded and surfaced
+ * in `excluded`, and the remaining (priced) weights are renormalized so the
+ * basket is fully invested and its level starts exactly at baseValue.
+ * `investedWeightBps` (< 10000 iff something was excluded) makes the condition
+ * explicit to callers.
  */
 export function buildBasket(
   weights: readonly ConstituentWeight[],
   prices: ReadonlyMap<string, number | null>,
   baseValue: number,
 ): Basket {
-  const holdings = weights.map((w) => {
-    const price = prices.get(w.stockTokenId) ?? null;
-    const targetUsd = (w.weightBps / BPS) * baseValue;
-    const shares = price !== null && price > 0 ? targetUsd / price : 0;
-    return { stockTokenId: w.stockTokenId, ticker: w.ticker, shares, weightBps: w.weightBps };
+  const priced: ConstituentWeight[] = [];
+  const excluded: ExcludedHolding[] = [];
+  for (const w of weights) {
+    const raw = prices.get(w.stockTokenId);
+    if (usablePrice(raw) === null) {
+      excluded.push({
+        stockTokenId: w.stockTokenId,
+        ticker: w.ticker,
+        weightBps: w.weightBps,
+        reason: raw === null || raw === undefined ? 'MISSING_PRICE' : 'NON_FINITE_PRICE',
+      });
+    } else {
+      priced.push(w);
+    }
+  }
+
+  const investedWeightBps = priced.reduce((s, w) => s + w.weightBps, 0);
+  if (priced.length === 0 || investedWeightBps <= 0) {
+    return { holdings: [], excluded, investedWeightBps: 0, divisor: 1, navUsd: 0, level: 0 };
+  }
+
+  // Renormalize invested weights to 100% so the priced basket starts at baseValue.
+  const holdings = priced.map((w) => {
+    const price = usablePrice(prices.get(w.stockTokenId))!;
+    const targetUsd = (w.weightBps / investedWeightBps) * baseValue;
+    return {
+      stockTokenId: w.stockTokenId,
+      ticker: w.ticker,
+      shares: targetUsd / price,
+      weightBps: w.weightBps,
+    };
   });
-  const navUsd = holdings.reduce((s, h) => {
-    const price = prices.get(h.stockTokenId) ?? 0;
-    return s + h.shares * (price ?? 0);
-  }, 0);
+  const navUsd = holdings.reduce(
+    (s, h) => s + h.shares * usablePrice(prices.get(h.stockTokenId))!,
+    0,
+  );
   const divisor = 1;
-  return { holdings, divisor, navUsd: round(navUsd, 2), level: round(navUsd / divisor, 4) };
+  return {
+    holdings,
+    excluded,
+    investedWeightBps,
+    divisor,
+    navUsd: round(navUsd, 2),
+    level: round(navUsd / divisor, 4),
+  };
 }
 
-/** Recompute level for an existing basket at new prices. */
+/**
+ * Recompute level for an existing basket at new prices. A holding whose price is
+ * missing/non-finite at valuation time contributes 0 (its shares are known but
+ * unpriceable now); this is a mark-to-market gap, distinct from inception
+ * exclusion. Callers can detect it via a level below expectation.
+ */
 export function computeLevel(
   basket: Basket,
   prices: ReadonlyMap<string, number | null>,
 ): LevelResult {
   const navUsd = basket.holdings.reduce((s, h) => {
-    const price = prices.get(h.stockTokenId) ?? 0;
+    const price = usablePrice(prices.get(h.stockTokenId));
     return s + h.shares * (price ?? 0);
   }, 0);
   return { navUsd: round(navUsd, 2), level: round(navUsd / basket.divisor, 4) };
+}
+
+/**
+ * Portfolio simulator: given an investment amount, target weights and current
+ * prices, return the per-constituent allocation (USD + fractional shares) and,
+ * when an index level series is supplied, the value the same investment would
+ * have had over that series (amount · level_t / level_0). Uses `buildBasket`, so
+ * unpriced constituents are surfaced (not silently dropped) and the invested
+ * portion is renormalized.
+ */
+export function simulateInvestment(
+  amountUsd: number,
+  weights: readonly ConstituentWeight[],
+  prices: ReadonlyMap<string, number | null>,
+  levelSeries: readonly PerformancePoint[] = [],
+): {
+  amountUsd: number;
+  investedWeightBps: number;
+  allocations: Array<{
+    stockTokenId: string;
+    ticker: string;
+    weightBps: number;
+    allocationUsd: number;
+    shares: number;
+    priceUsd: number;
+  }>;
+  excluded: Basket['excluded'];
+  valueSeries: Array<{ takenAt: number; valueUsd: number }>;
+  finalValueUsd: number | null;
+  totalReturn: number | null;
+} {
+  const amount = Number.isFinite(amountUsd) && amountUsd > 0 ? amountUsd : 0;
+  const basket = buildBasket(weights, prices, amount);
+  const allocations = basket.holdings.map((h) => {
+    const price = usablePrice(prices.get(h.stockTokenId))!;
+    return {
+      stockTokenId: h.stockTokenId,
+      ticker: h.ticker,
+      weightBps: h.weightBps,
+      allocationUsd: round(h.shares * price, 2),
+      shares: round(h.shares, 6),
+      priceUsd: price,
+    };
+  });
+
+  const asc = [...levelSeries].sort((a, b) => a.takenAt - b.takenAt);
+  const first = asc.find((p) => p.level > 0) ?? null;
+  const valueSeries =
+    first && amount > 0
+      ? asc.map((p) => ({
+          takenAt: p.takenAt,
+          valueUsd: round((amount * p.level) / first.level, 2),
+        }))
+      : [];
+  const finalValueUsd =
+    valueSeries.length > 0 ? valueSeries[valueSeries.length - 1]!.valueUsd : null;
+  const totalReturn =
+    finalValueUsd !== null && amount > 0 ? round(finalValueUsd / amount - 1, 6) : null;
+
+  return {
+    amountUsd: amount,
+    investedWeightBps: basket.investedWeightBps,
+    allocations,
+    excluded: basket.excluded,
+    valueSeries,
+    finalValueUsd,
+    totalReturn,
+  };
 }
 
 /**
@@ -114,30 +230,45 @@ export function computeTurnoverBps(
   return Math.round(absDiff / 2);
 }
 
-/** Return over the last `days` of a level series, or null if not enough history. */
+/**
+ * Return over the last `days` of a level series, or null when the series does
+ * not actually cover that horizon.
+ *
+ * Hardened after audit V-02: the reference is the last point at/before the
+ * cutoff, and it is REJECTED (null) when (a) the series does not reach back to
+ * the cutoff at all, or (b) the reference is materially staler than requested
+ * (sparse data) — so a 10-hour or 10-day move is never mislabeled as a "1d"
+ * return. Tolerance = max(2 days, 50% of the window).
+ */
 function windowReturn(points: readonly PerformancePoint[], days: number): number | null {
   if (points.length < 2) return null;
   const latest = points[points.length - 1]!;
-  const cutoff = latest.takenAt - days * 86_400_000;
-  // The reference point is the last point at or before the cutoff, else the first.
+  const cutoff = latest.takenAt - days * DAY_MS;
   let ref: PerformancePoint | null = null;
   for (const p of points) {
     if (p.takenAt <= cutoff) ref = p;
     else break;
   }
-  const base = ref ?? points[0]!;
-  if (base.level <= 0 || base === latest) return null;
-  return round(latest.level / base.level - 1, 6);
+  if (ref === null) return null; // series does not span the window
+  const lookbackDays = (latest.takenAt - ref.takenAt) / DAY_MS;
+  const toleranceDays = Math.max(2, days * 0.5);
+  if (lookbackDays > days + toleranceDays) return null; // reference too stale
+  if (ref.level <= 0 || ref === latest) return null;
+  return round(latest.level / ref.level - 1, 6);
 }
 
 /**
  * Performance over standard windows plus annualized volatility and max drawdown.
- * `points` must be ascending by time. Volatility annualizes the stdev of
- * consecutive-point returns by √(TRADING_DAYS_PER_YEAR); it assumes roughly
- * daily spacing (documented assumption).
+ * Volatility annualizes the stdev of consecutive-point returns by
+ * √(TRADING_DAYS_PER_YEAR), assuming roughly daily spacing (documented). Points
+ * are sorted ascending and de-duplicated by timestamp (last-write-wins) so
+ * duplicate observations cannot create spurious zero-interval returns (audit
+ * S-02).
  */
 export function computePerformance(points: readonly PerformancePoint[]): PerformanceResult {
-  const asc = [...points].sort((a, b) => a.takenAt - b.takenAt);
+  const byTime = new Map<number, PerformancePoint>();
+  for (const p of [...points].sort((a, b) => a.takenAt - b.takenAt)) byTime.set(p.takenAt, p);
+  const asc = [...byTime.values()];
   const latest = asc.length > 0 ? asc[asc.length - 1]! : null;
   const first = asc.length > 0 ? asc[0]! : null;
 
@@ -155,9 +286,10 @@ export function computePerformance(points: readonly PerformancePoint[]): Perform
       if (p.takenAt <= yearStart) ytdRef = p;
       else break;
     }
-    const base = ytdRef ?? first;
-    if (base && base.level > 0 && base !== latest) {
-      returns['ytd'] = round(latest.level / base.level - 1, 6);
+    // YTD requires a real year-start reference; if the series starts after Jan 1
+    // there is no YTD to report (the UI shows "since inception" separately).
+    if (ytdRef && ytdRef.level > 0 && ytdRef !== latest) {
+      returns['ytd'] = round(latest.level / ytdRef.level - 1, 6);
     }
   }
 

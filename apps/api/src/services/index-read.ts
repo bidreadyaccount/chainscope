@@ -6,16 +6,32 @@
  * Every value leaving here is JSON-safe.
  */
 
-import { ROBINHOOD_CHAIN_ID } from '@chainscope/config';
+import {
+  ROBINHOOD_CHAIN_ID,
+  type IndexMethodology,
+  DEFAULT_INDEX_CONSTRAINTS,
+  WEIGHT_DENOMINATOR_BPS,
+} from '@chainscope/config';
 import {
   computeSectorAllocation,
   computeConcentration,
   computePerformance,
+  computeWeights,
+  buildManualWeights,
+  simulateInvestment,
   type ConstituentInput,
   type ConstituentWeight,
+  type ManualWeightInput,
   type PerformancePoint,
 } from '@chainscope/shared';
 import type { PrismaClient } from '@chainscope/database';
+
+export interface PreviewInput {
+  tickers: string[];
+  methodology?: IndexMethodology;
+  manualWeights?: Array<{ ticker: string; weight: number }>;
+  maxWeightBps?: number;
+}
 
 export interface IndexListItem {
   slug: string;
@@ -164,6 +180,135 @@ export class IndexReadService {
         isDemo: s.isDemo,
       })),
       total: stocks.length,
+    };
+  }
+
+  /**
+   * Custom index builder preview (compute-only, no persistence). Loads the named
+   * stock tokens, runs the index engine (methodology or manual weights), and
+   * returns weights + sector allocation + concentration + any exclusions/errors.
+   */
+  async preview(input: PreviewInput): Promise<unknown> {
+    const tickers = [...new Set(input.tickers.map((t) => t.toUpperCase()))];
+    const stocks = await this.prisma.stockToken.findMany({
+      where: { chainId: ROBINHOOD_CHAIN_ID, ticker: { in: tickers } },
+    });
+    const byTicker = new Map(stocks.map((s) => [s.ticker, s]));
+    const unknownTickers = tickers.filter((t) => !byTicker.has(t));
+    const maxWeightBps = input.maxWeightBps ?? WEIGHT_DENOMINATOR_BPS;
+    const constraints = {
+      maxWeightBps,
+      minConstituents: DEFAULT_INDEX_CONSTRAINTS.minConstituents,
+    };
+
+    const result = input.manualWeights
+      ? buildManualWeights(
+          input.manualWeights
+            .filter((w) => byTicker.has(w.ticker.toUpperCase()))
+            .map<ManualWeightInput>((w) => ({
+              stockTokenId: byTicker.get(w.ticker.toUpperCase())!.id,
+              ticker: w.ticker.toUpperCase(),
+              weight: w.weight,
+            })),
+          constraints,
+        )
+      : computeWeights(
+          stocks.map<ConstituentInput>((s) => ({
+            stockTokenId: s.id,
+            ticker: s.ticker,
+            sector: s.sector,
+            priceUsd: s.priceUsd,
+            marketCapUsd: s.marketCapUsd,
+            volatility: s.volatility,
+          })),
+          input.methodology ?? 'MARKET_CAP',
+          constraints,
+        );
+
+    const constituentInputs: ConstituentInput[] = stocks.map((s) => ({
+      stockTokenId: s.id,
+      ticker: s.ticker,
+      sector: s.sector,
+      priceUsd: s.priceUsd,
+      marketCapUsd: s.marketCapUsd,
+      volatility: s.volatility,
+    }));
+    const sectorAllocation = result.ok
+      ? computeSectorAllocation(result.weights, constituentInputs)
+      : [];
+    const concentration = result.ok ? computeConcentration(result.weights) : null;
+
+    return {
+      ok: result.ok,
+      error: result.error ?? null,
+      methodology: result.methodology,
+      maxWeightBps,
+      unknownTickers,
+      excluded: result.excluded,
+      weights: result.weights.map((w) => {
+        const s = byTicker.get(w.ticker);
+        return {
+          ticker: w.ticker,
+          companyName: s?.companyName ?? w.ticker,
+          sector: s?.sector ?? 'Unknown',
+          weightBps: w.weightBps,
+          priceUsd: s?.priceUsd ?? null,
+          marketCapUsd: s?.marketCapUsd ?? null,
+          colorTheme: s?.colorTheme ?? null,
+        };
+      }),
+      sectorAllocation,
+      concentration,
+    };
+  }
+
+  /**
+   * Portfolio simulator for an existing index: split `amountUsd` across the
+   * index's current constituents and project the same investment over the
+   * index's NAV history. Read-only — no order is placed and nothing is persisted.
+   */
+  async simulate(slug: string, amountUsd: number): Promise<unknown | null> {
+    const idx = await this.prisma.index.findUnique({
+      where: { slug },
+      include: { constituents: { include: { stockToken: true } } },
+    });
+    if (!idx) return null;
+
+    const weights: ConstituentWeight[] = idx.constituents.map((c) => ({
+      stockTokenId: c.stockTokenId,
+      ticker: c.stockToken.ticker,
+      weightBps: c.targetWeightBps,
+    }));
+    const prices = new Map<string, number | null>(
+      idx.constituents.map((c) => [c.stockTokenId, c.stockToken.priceUsd]),
+    );
+    const nav = await this.navPoints(idx.id);
+    const sim = simulateInvestment(amountUsd, weights, prices, nav);
+
+    const byId = new Map(idx.constituents.map((c) => [c.stockTokenId, c.stockToken]));
+    return {
+      slug: idx.slug,
+      symbol: idx.symbol,
+      name: idx.name,
+      benchmark: idx.benchmark,
+      // Benchmark comparison is intentionally not fabricated: no benchmark price
+      // series is ingested yet, so we report the portfolio's own trajectory only.
+      benchmarkComparisonAvailable: false,
+      amountUsd: sim.amountUsd,
+      investedWeightBps: sim.investedWeightBps,
+      finalValueUsd: sim.finalValueUsd,
+      totalReturn: sim.totalReturn,
+      excluded: sim.excluded,
+      allocations: sim.allocations.map((a) => ({
+        ...a,
+        companyName: byId.get(a.stockTokenId)?.companyName ?? a.ticker,
+        sector: byId.get(a.stockTokenId)?.sector ?? 'Unknown',
+        colorTheme: byId.get(a.stockTokenId)?.colorTheme ?? null,
+      })),
+      valueSeries: sim.valueSeries.map((p) => ({
+        takenAt: new Date(p.takenAt).toISOString(),
+        valueUsd: p.valueUsd,
+      })),
     };
   }
 

@@ -220,7 +220,78 @@ export const api = {
       `/api/v1/stocks${sector ? `?sector=${encodeURIComponent(sector)}` : ''}`,
     ),
   stock: (ticker: string) => get<StockDetail>(`/api/v1/stocks/${ticker}`),
+  previewIndex: (input: PreviewRequest) => post<IndexPreview>(`/api/v1/indexes/preview`, input),
+  simulate: (slug: string, amount: number) =>
+    get<SimulationResult>(`/api/v1/indexes/${slug}/simulate?amount=${amount}`),
 };
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const b = (await res.json().catch(() => null)) as {
+      error?: { message?: string };
+    } | null;
+    throw new Error(b?.error?.message ?? `API ${res.status} for ${path}`);
+  }
+  return (await res.json()) as T;
+}
+
+export type Methodology = 'EQUAL' | 'MARKET_CAP' | 'PRICE' | 'INVERSE_VOL' | 'CAP_CAPPED';
+
+export interface PreviewRequest {
+  tickers: string[];
+  methodology?: Methodology;
+  manualWeights?: Array<{ ticker: string; weight: number }>;
+  maxWeightBps?: number;
+}
+
+export interface IndexPreview {
+  ok: boolean;
+  error: string | null;
+  methodology: string;
+  maxWeightBps: number;
+  unknownTickers: string[];
+  excluded: Array<{ ticker: string; reason: string }>;
+  weights: Array<{
+    ticker: string;
+    companyName: string;
+    sector: string;
+    weightBps: number;
+    priceUsd: number | null;
+    marketCapUsd: number | null;
+    colorTheme: string | null;
+  }>;
+  sectorAllocation: Array<{ sector: string; weightBps: number }>;
+  concentration: { top1Bps: number; top5Bps: number; hhi: number; effectiveN: number } | null;
+}
+
+export interface SimulationResult {
+  slug: string;
+  symbol: string;
+  name: string;
+  benchmark: string | null;
+  benchmarkComparisonAvailable: boolean;
+  amountUsd: number;
+  investedWeightBps: number;
+  finalValueUsd: number | null;
+  totalReturn: number | null;
+  excluded: Array<{ ticker: string; reason: string }>;
+  allocations: Array<{
+    ticker: string;
+    companyName: string;
+    sector: string;
+    weightBps: number;
+    allocationUsd: number;
+    shares: number;
+    priceUsd: number;
+    colorTheme: string | null;
+  }>;
+  valueSeries: Array<{ takenAt: string; valueUsd: number }>;
+}
 
 export interface IndexListItem {
   slug: string;

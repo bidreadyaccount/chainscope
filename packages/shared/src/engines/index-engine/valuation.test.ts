@@ -189,4 +189,96 @@ describe('computePerformance', () => {
     expect(computePerformance(series([100])).annualizedVolatility).toBeNull();
     expect(computePerformance(series([100])).returns['7d']).toBeNull();
   });
+
+  // --- Hardening after audit V-02 / S-02 ---
+
+  it('does not mislabel a stale reference: a 10-day gap is not a 1d return', () => {
+    const pts: PerformancePoint[] = [
+      { takenAt: t0, level: 100 },
+      { takenAt: t0 + 10 * day, level: 130 },
+    ];
+    const perf = computePerformance(pts);
+    // 1d: reference 10 days back is far beyond the 1d+tolerance window → null.
+    expect(perf.returns['1d']).toBeNull();
+    // 30d/90d: series does not reach back that far → null.
+    expect(perf.returns['30d']).toBeNull();
+    expect(perf.returns['90d']).toBeNull();
+  });
+
+  it('returns null for windows the series does not span', () => {
+    const perf = computePerformance(series([100, 101, 102])); // 3 daily points
+    expect(perf.returns['1d']).toBeCloseTo(102 / 101 - 1, 6);
+    expect(perf.returns['30d']).toBeNull();
+    expect(perf.returns['90d']).toBeNull();
+  });
+
+  it('YTD is null when the series starts after Jan 1 (no year-start reference)', () => {
+    // Series entirely within one year, starting mid-March.
+    const march = Date.UTC(2026, 2, 15);
+    const pts = [0, 1, 2, 3].map((i) => ({ takenAt: march + i * day, level: 100 + i }));
+    expect(computePerformance(pts).returns['ytd']).toBeNull();
+  });
+
+  it('YTD is computed from the year-start reference when one exists', () => {
+    const decLast = Date.UTC(2025, 11, 31);
+    const pts = [0, 1, 2, 3].map((i) => ({ takenAt: decLast + i * day, level: 100 + i * 10 }));
+    // The Jan 1 2026 point (== year start, level 110) is the YTD base → 130/110.
+    expect(computePerformance(pts).returns['ytd']).toBeCloseTo(130 / 110 - 1, 6);
+  });
+
+  it('duplicate timestamps are de-duplicated (last-write-wins), no zero-interval blowup', () => {
+    const pts: PerformancePoint[] = [
+      { takenAt: t0, level: 100 },
+      { takenAt: t0 + day, level: 110 },
+      { takenAt: t0 + day, level: 105 }, // duplicate timestamp, later wins
+      { takenAt: t0 + 2 * day, level: 108 },
+    ];
+    const perf = computePerformance(pts);
+    expect(perf.latestLevel).toBe(108);
+    // Volatility finite and sane (no division by a zero interval).
+    expect(perf.annualizedVolatility).not.toBeNull();
+    expect(Number.isFinite(perf.annualizedVolatility!)).toBe(true);
+  });
+});
+
+describe('buildBasket — missing-price handling (audit V-01)', () => {
+  it('excludes an unpriced constituent (surfaced) and renormalizes to stay fully invested', () => {
+    const basket = buildBasket(
+      [W('a', 5000), W('b', 5000)],
+      new Map<string, number | null>([
+        ['a', 100],
+        ['b', null],
+      ]),
+      1000,
+    );
+    // B is excluded and reported; A is renormalized to 100% so level starts at baseValue.
+    expect(basket.excluded).toEqual([
+      { stockTokenId: 'b', ticker: 'B', weightBps: 5000, reason: 'MISSING_PRICE' },
+    ]);
+    expect(basket.investedWeightBps).toBe(5000);
+    expect(basket.level).toBe(1000); // NOT silently 500
+    expect(basket.holdings).toHaveLength(1);
+    expect(basket.holdings[0]!.shares).toBeCloseTo(10, 10); // $1000 / $100
+  });
+
+  it('a non-finite price is excluded as NON_FINITE_PRICE', () => {
+    const basket = buildBasket(
+      [W('a', 5000), W('b', 5000)],
+      new Map<string, number | null>([
+        ['a', 100],
+        ['b', Infinity as unknown as number],
+      ]),
+      1000,
+    );
+    expect(basket.excluded[0]?.reason).toBe('NON_FINITE_PRICE');
+    expect(basket.level).toBe(1000);
+  });
+
+  it('all-unpriced → empty basket, zero level, everything reported', () => {
+    const basket = buildBasket([W('a', 5000), W('b', 5000)], new Map(), 1000);
+    expect(basket.holdings).toEqual([]);
+    expect(basket.excluded).toHaveLength(2);
+    expect(basket.investedWeightBps).toBe(0);
+    expect(basket.level).toBe(0);
+  });
 });
