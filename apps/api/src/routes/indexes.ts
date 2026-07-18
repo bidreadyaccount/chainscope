@@ -68,7 +68,10 @@ const previewBody = z
     }
   });
 const simulateQuery = z.object({
-  amount: z.coerce.number().finite().positive().max(1_000_000_000),
+  // Minimum one cent: allocations are apportioned in integer cents, so a sub-cent
+  // amount cannot be represented and would report $0 against a positive request
+  // (audit F-06). The web form already enforces a $1 minimum.
+  amount: z.coerce.number().finite().min(0.01).max(1_000_000_000),
 });
 
 export const indexRoutes: FastifyPluginAsync = async (app) => {

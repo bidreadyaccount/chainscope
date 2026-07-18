@@ -201,9 +201,19 @@ describe('GET /indexes/:slug/simulate', () => {
     const { status, body } = await json('/api/v1/indexes/mag7/simulate?amount=5000');
     expect(status).toBe(200);
     expect(body.amountUsd).toBe(5000);
-    const allocations = body.allocations as Array<{ allocationUsd: number }>;
-    const totalAllocated = allocations.reduce((s, a) => s + a.allocationUsd, 0);
-    expect(totalAllocated).toBeCloseTo(5000, 0); // fully invested
+    // Fully invested and exact to the cent — the book must sum to the request with
+    // no rounding drift (audit F-05), not merely be close.
+    const allocations = body.allocations as Array<{
+      allocationUsd: number;
+      shares: number;
+      priceUsd: number;
+    }>;
+    const totalCents = allocations.reduce((s, a) => s + Math.round(a.allocationUsd * 100), 0);
+    expect(totalCents).toBe(5000 * 100);
+    // shares and dollars describe the same holding — they cannot contradict (F-06).
+    for (const a of allocations) {
+      expect(Math.abs(a.shares * a.priceUsd - a.allocationUsd)).toBeLessThan(1e-6);
+    }
     expect((body.valueSeries as unknown[]).length).toBeGreaterThan(30);
     // All demo constituents are priced → projection is available and consistent.
     expect(body.projectionAvailable).toBe(true);

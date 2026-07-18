@@ -74,3 +74,53 @@ export function round(v: number, dp = 2): number {
   const f = 10 ** dp;
   return Math.round(v * f) / f;
 }
+
+/**
+ * Largest-remainder (Hamilton) apportionment: split a non-negative integer
+ * `total` across buckets in proportion to their non-negative `weights`,
+ * returning integers that sum to EXACTLY `total`. This is the same identity-
+ * stable method the index engine uses for basis points, generalized to an
+ * arbitrary integer total (used for USD-cent allocation, audit F-05). Each bucket
+ * takes the floor of its exact share; the leftover from flooring is handed out one
+ * unit at a time in descending-remainder order, ties broken by `ids[i]` so the
+ * result is independent of the input ordering.
+ *
+ * Returns all-zeros when `total <= 0`, `total` is not an integer, there are no
+ * buckets, or every weight is non-positive.
+ */
+export function apportion(
+  total: number,
+  weights: readonly number[],
+  ids: readonly string[],
+): number[] {
+  const n = weights.length;
+  const result = new Array<number>(n).fill(0);
+  if (!Number.isInteger(total) || total <= 0 || n === 0) return result;
+
+  const sumW = weights.reduce((s, w) => s + (Number.isFinite(w) && w > 0 ? w : 0), 0);
+  if (sumW <= 0) return result;
+
+  const parts = weights.map((w, i) => {
+    const safe = Number.isFinite(w) && w > 0 ? w : 0;
+    const exact = (total * safe) / sumW;
+    const floor = Math.floor(exact);
+    return { i, id: ids[i] ?? String(i), floor, remainder: exact - floor };
+  });
+
+  let allocated = 0;
+  for (const p of parts) {
+    result[p.i] = p.floor;
+    allocated += p.floor;
+  }
+  let leftover = total - allocated; // 0 <= leftover < n
+
+  // Largest remainder first; ties broken by identity for order-independence.
+  const order = [...parts].sort((a, b) =>
+    b.remainder !== a.remainder ? b.remainder - a.remainder : a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+  );
+  for (let k = 0; k < order.length && leftover > 0; k++) {
+    result[order[k]!.i]! += 1;
+    leftover--;
+  }
+  return result;
+}

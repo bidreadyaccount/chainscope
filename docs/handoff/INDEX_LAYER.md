@@ -179,3 +179,31 @@ the builder/simulator surface — all fixed (full suite 372 → **376**):
   alongside.
 - **F-04 (Low) — Builder had no error/empty states.** `/build` now renders an error state on a failed
   `/stocks` query, an empty state for an empty registry, and a no-match state for a zero-result search.
+
+## Re-audit remediation (round 4)
+
+Round-4 external audit of `984fcab` confirmed F-01..F-04 fixed and the pure engine clean through a
+fourth 5,000-book extreme-magnitude fuzz (zero sum/cap/infeasibility/NaN violations) with seeded MAG7
+weights, level, returns and concentration matching first-principles exactly. It found 2 findings, both
+in the simulator's dollar rounding — both fixed:
+
+- **F-05 (Med) — rounded dollar allocations didn't reconcile to the investment.** `simulateInvestment`
+  rounded each `allocationUsd` independently (`round(shares·price, 2)`), so a fully-priced book need not
+  sum to `amountUsd` (audit fuzz: 2,706/5,000 cases drifted, max 4¢; e.g. `$1` over `[3333,3333,3334]`
+  at `$1` → `$0.99`). Now the invested dollars are apportioned in **integer cents** by the realized
+  weights with the same identity-stable largest-remainder rounder — promoted to shared math as
+  `apportion(total, weights, ids)` (`packages/shared/src/engines/math.ts`) — so allocations sum to
+  EXACTLY the investment. Tests: the exact `$1.00` repro, plus a 400-book seeded reconciliation fuzz;
+  the API test now asserts exact cent conservation instead of `toBeCloseTo`.
+- **F-06 (Low) — `shares` could contradict `allocationUsd`.** `shares` was rounded to 6 dp independently,
+  so `shares·price` could differ from the dollars shown (e.g. `$1` at a `$10M` price → `shares: 0` beside
+  `allocationUsd: 1`). `allocationUsd` (cent-exact) is now **authoritative** and `shares` is derived from
+  it (`allocationUsd / price`, no destructive rounding), so `shares·price` matches the dollars for every
+  accepted input. The `/simulate` route also rejects sub-cent amounts (`amount ≥ 0.01`), which cannot be
+  represented in cents. Test: `$1` at `$10M` gives nonzero shares that reconcile; the random-book fuzz
+  bounds `|shares·price − allocationUsd|`.
+
+Note on the reported "4 failed / 50 skipped": all were API-project tests that need Postgres 16 + Redis 7,
+which the audit environment could not start (`ECONNREFUSED 127.0.0.1:6379`) — an environment coverage
+gap, not assertion failures. With Postgres + Redis up, all six projects pass (the F-05/F-06 tests and
+the new shared-math/trade-planner tests raise the suite total above the prior 376).

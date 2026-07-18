@@ -12,6 +12,15 @@ import type { ConstituentWeight, PerformancePoint } from './types.js';
 const sum = (ws: Array<{ weightBps: number }>): number => ws.reduce((s, w) => s + w.weightBps, 0);
 const m = (id: string, weight: number) => ({ stockTokenId: id, ticker: id.toUpperCase(), weight });
 
+/** Deterministic LCG so the randomized reconciliation fuzz is reproducible. */
+function lcg(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0xffffffff;
+  };
+}
+
 describe('buildManualWeights', () => {
   it('normalizes arbitrary positive weights to exactly 10000 bps', () => {
     const r = buildManualWeights([m('a', 3), m('b', 1)]);
@@ -168,5 +177,52 @@ describe('simulateInvestment', () => {
     expect(sim.allocations.map((a) => a.realizedWeightBps).sort((x, y) => x - y)).toEqual([
       3333, 3333, 3334,
     ]);
+  });
+
+  it('allocations sum EXACTLY to the investment — no cent drift (audit F-05)', () => {
+    // The audit's repro: $1.00 across [3333, 3333, 3334] at $1 each rounds to $0.99
+    // under independent per-name rounding. Cent apportionment must total $1.00.
+    const sim = simulateInvestment(
+      1,
+      [W('a', 3333), W('b', 3333), W('d', 3334)],
+      new Map([
+        ['a', 1],
+        ['b', 1],
+        ['d', 1],
+      ]),
+    );
+    const cents = sim.allocations.reduce((s, a) => s + Math.round(a.allocationUsd * 100), 0);
+    expect(cents).toBe(100);
+  });
+
+  it('shares never contradict the dollar allocation, even at extreme price (audit F-06)', () => {
+    // $1 into a name priced $10M rounded shares to 0 while showing $1 allocated.
+    const sim = simulateInvestment(1, [W('a', 10000)], new Map([['a', 10_000_000]]));
+    const a = sim.allocations[0]!;
+    expect(a.allocationUsd).toBe(1); // dollars are authoritative
+    expect(a.shares).toBeGreaterThan(0); // not rounded away to zero
+    expect(Math.abs(a.shares * a.priceUsd - a.allocationUsd)).toBeLessThan(1e-6);
+  });
+
+  it('reconciles to the cent and keeps shares consistent across random books (F-05/F-06)', () => {
+    const rand = lcg(20260718);
+    for (let t = 0; t < 400; t++) {
+      const n = 2 + Math.floor(rand() * 6); // 2..7 names
+      const cents = 1 + Math.floor(rand() * 1_000_000); // $0.01 .. $10,000.00
+      const amount = cents / 100;
+      const weights: ConstituentWeight[] = [];
+      const prices = new Map<string, number>();
+      for (let i = 0; i < n; i++) {
+        const id = `s${i}`;
+        weights.push(W(id, 1 + Math.floor(rand() * 9999)));
+        prices.set(id, Math.round((0.01 + rand() * 5000) * 100) / 100); // positive price
+      }
+      const sim = simulateInvestment(amount, weights, prices);
+      const allocated = sim.allocations.reduce((s, a) => s + Math.round(a.allocationUsd * 100), 0);
+      expect(allocated).toBe(cents); // exact cent conservation
+      for (const a of sim.allocations) {
+        expect(Math.abs(a.shares * a.priceUsd - a.allocationUsd)).toBeLessThan(1e-6);
+      }
+    }
   });
 });

@@ -13,7 +13,7 @@
  */
 
 import { WEIGHT_DENOMINATOR_BPS, TRADING_DAYS_PER_YEAR } from '@chainscope/config';
-import { round } from '../math.js';
+import { apportion, round } from '../math.js';
 import { largestRemainderBps } from './weights.js';
 import type {
   Basket,
@@ -172,15 +172,29 @@ export function simulateInvestment(
           basket.holdings.map((h) => ({ id: h.stockTokenId, fraction: h.weightBps / invested })),
         )
       : basket.holdings.map(() => 0);
+  // Allocate the invested dollars in integer CENTS across the holdings by their
+  // realized weights, using the same identity-stable largest-remainder rounder, so
+  // the per-name allocations sum EXACTLY to the invested amount instead of drifting
+  // a few cents from independent rounding (audit F-05). `buildBasket` deploys the
+  // full `amount` across the (renormalized) priced basket, so the target total is
+  // `amount`. `allocationUsd` is authoritative; `shares` is derived from it
+  // (allocationUsd / price) so `shares * price` can never contradict the dollars
+  // shown, including at extreme prices (audit F-06).
+  const allocationCents = apportion(
+    Math.round(amount * 100),
+    realizedBps,
+    basket.holdings.map((h) => h.stockTokenId),
+  );
   const allocations = basket.holdings.map((h, i) => {
     const price = usablePrice(prices.get(h.stockTokenId))!;
+    const allocationUsd = allocationCents[i]! / 100;
     return {
       stockTokenId: h.stockTokenId,
       ticker: h.ticker,
       weightBps: h.weightBps,
       realizedWeightBps: realizedBps[i]!,
-      allocationUsd: round(h.shares * price, 2),
-      shares: round(h.shares, 6),
+      allocationUsd,
+      shares: price > 0 ? allocationUsd / price : 0,
       priceUsd: price,
     };
   });
