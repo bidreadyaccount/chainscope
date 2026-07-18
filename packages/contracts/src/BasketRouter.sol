@@ -47,6 +47,13 @@ contract BasketRouter is ReentrancyGuard, Ownable, Pausable {
     mapping(address => bool) public allowedToken;
     /// Users cleared to trade when the allowlist is enabled.
     mapping(address => bool) public allowedUser;
+    /// Trade fee in basis points, skimmed in stablecoin (on buy inputs and sell
+    /// outputs). Only taken when both feeBps > 0 and feeRecipient is set.
+    uint256 public feeBps;
+    /// Where the fee is sent.
+    address public feeRecipient;
+    /// Hard cap the owner cannot exceed — bounds fee abuse (0.1% is the intended value).
+    uint256 public constant MAX_FEE_BPS = 100; // 1%
 
     event Bought(address indexed user, address indexed token, uint256 stableIn, uint256 tokenOut);
     event Sold(address indexed user, address indexed token, uint256 tokenIn, uint256 stableOut);
@@ -55,6 +62,7 @@ contract BasketRouter is ReentrancyGuard, Ownable, Pausable {
     event TokenAllowed(address indexed token, bool allowed);
     event UserAllowlistEnabled(bool enabled);
     event UserAllowed(address indexed user, bool allowed);
+    event FeeSet(uint256 feeBps, address indexed recipient);
 
     error Empty();
     error Expired();
@@ -62,6 +70,7 @@ contract BasketRouter is ReentrancyGuard, Ownable, Pausable {
     error TokenNotAllowed(address token);
     error NotEligible(address user);
     error ZeroAmount();
+    error FeeTooHigh();
 
     constructor(IERC20 stablecoin_, ISwapAdapter adapter_) Ownable(msg.sender) {
         require(address(stablecoin_) != address(0), "stablecoin=0");
@@ -94,6 +103,15 @@ contract BasketRouter is ReentrancyGuard, Ownable, Pausable {
     function setUserAllowed(address user, bool ok) external onlyOwner {
         allowedUser[user] = ok;
         emit UserAllowed(user, ok);
+    }
+
+    /// @notice Set the trade fee (bps) and its recipient. Capped at MAX_FEE_BPS.
+    function setFee(uint256 bps, address recipient) external onlyOwner {
+        if (bps > MAX_FEE_BPS) revert FeeTooHigh();
+        if (bps > 0) require(recipient != address(0), "recipient=0");
+        feeBps = bps;
+        feeRecipient = recipient;
+        emit FeeSet(bps, recipient);
     }
 
     function pause() external onlyOwner {
@@ -129,8 +147,9 @@ contract BasketRouter is ReentrancyGuard, Ownable, Pausable {
             BuyLeg calldata leg = legs[i];
             if (!allowedToken[leg.token]) revert TokenNotAllowed(leg.token);
             if (leg.stableIn == 0) revert ZeroAmount();
-            stablecoin.forceApprove(address(a), leg.stableIn);
-            uint256 out = a.swapExactIn(address(stablecoin), leg.token, leg.stableIn, leg.minTokenOut, msg.sender);
+            uint256 net = _takeFee(leg.stableIn); // 0.1% fee skim on the buy input
+            stablecoin.forceApprove(address(a), net);
+            uint256 out = a.swapExactIn(address(stablecoin), leg.token, net, leg.minTokenOut, msg.sender);
             emit Bought(msg.sender, leg.token, leg.stableIn, out);
         }
         stablecoin.forceApprove(address(a), 0);
@@ -156,10 +175,13 @@ contract BasketRouter is ReentrancyGuard, Ownable, Pausable {
             IERC20 tok = IERC20(leg.token);
             tok.safeTransferFrom(msg.sender, address(this), leg.tokenIn);
             tok.forceApprove(address(a), leg.tokenIn);
-            uint256 out = a.swapExactIn(leg.token, address(stablecoin), leg.tokenIn, leg.minStableOut, msg.sender);
+            // Swap to the router, skim the fee, forward the net to the user.
+            uint256 gross = a.swapExactIn(leg.token, address(stablecoin), leg.tokenIn, leg.minStableOut, address(this));
             tok.forceApprove(address(a), 0);
-            totalStableOut += out;
-            emit Sold(msg.sender, leg.token, leg.tokenIn, out);
+            uint256 net = _takeFee(gross); // 0.1% fee skim on the sell output
+            stablecoin.safeTransfer(msg.sender, net);
+            totalStableOut += net;
+            emit Sold(msg.sender, leg.token, leg.tokenIn, net);
         }
     }
 
@@ -198,8 +220,9 @@ contract BasketRouter is ReentrancyGuard, Ownable, Pausable {
             BuyLeg calldata leg = buys[i];
             if (!allowedToken[leg.token]) revert TokenNotAllowed(leg.token);
             if (leg.stableIn == 0) revert ZeroAmount();
-            stablecoin.forceApprove(address(a), leg.stableIn);
-            uint256 out = a.swapExactIn(address(stablecoin), leg.token, leg.stableIn, leg.minTokenOut, msg.sender);
+            uint256 net = _takeFee(leg.stableIn); // 0.1% fee skim on the buy input
+            stablecoin.forceApprove(address(a), net);
+            uint256 out = a.swapExactIn(address(stablecoin), leg.token, net, leg.minTokenOut, msg.sender);
             emit Bought(msg.sender, leg.token, leg.stableIn, out);
         }
         stablecoin.forceApprove(address(a), 0);
@@ -220,5 +243,16 @@ contract BasketRouter is ReentrancyGuard, Ownable, Pausable {
     function _refundStable() internal returns (uint256 bal) {
         bal = stablecoin.balanceOf(address(this));
         if (bal > 0) stablecoin.safeTransfer(msg.sender, bal);
+    }
+
+    /// Skim the stablecoin fee from `amount` (router already holds it) and return the
+    /// net that should be swapped/forwarded. No-op when the fee is unset.
+    function _takeFee(uint256 amount) internal returns (uint256) {
+        uint256 bps = feeBps;
+        if (bps == 0) return amount;
+        uint256 fee = (amount * bps) / 10_000;
+        if (fee == 0) return amount;
+        stablecoin.safeTransfer(feeRecipient, fee);
+        return amount - fee;
     }
 }

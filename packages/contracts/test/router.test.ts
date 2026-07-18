@@ -176,6 +176,39 @@ describe('BasketRouter — rebalance', () => {
   });
 });
 
+describe('BasketRouter — fee', () => {
+  it('skims the 0.1% fee on a buy and routes it to the recipient', async () => {
+    const d = await deployAll();
+    const feeTo = evm.accounts[3]!;
+    await send(d.router.setFee(10, feeTo)); // 0.1%
+    await send(d.usdc.mint(d.user, usd(2000)));
+    await send(asUser(d.usdc).approve(d.addr.router, usd(2000)));
+    await send(asUser(d.router).buyBasket([{ token: d.addr.aapl, stableIn: usd(2000), minTokenOut: 0 }], DL));
+    expect(await d.usdc.balanceOf(feeTo)).toBe(usd(2)); // $2000 · 0.1%
+    expect(await d.aapl.balanceOf(d.user)).toBe(999n * 10n ** 16n); // $1998 / $200 = 9.99
+    expect(await d.usdc.balanceOf(d.user)).toBe(0n);
+    await expectNoRouterBalance(d);
+  });
+
+  it('skims the 0.1% fee on a sell and pays the user the net', async () => {
+    const d = await deployAll();
+    const feeTo = evm.accounts[3]!;
+    await send(d.router.setFee(10, feeTo));
+    await send(d.aapl.mint(d.user, tok(10)));
+    await send(asUser(d.aapl).approve(d.addr.router, tok(10)));
+    await send(asUser(d.router).sellBasket([{ token: d.addr.aapl, tokenIn: tok(10), minStableOut: 0 }], DL));
+    expect(await d.usdc.balanceOf(feeTo)).toBe(usd(2)); // $2000 · 0.1%
+    expect(await d.usdc.balanceOf(d.user)).toBe(usd(1998)); // net to user
+    await expectNoRouterBalance(d);
+  });
+
+  it('caps the fee and restricts setFee to the owner', async () => {
+    const d = await deployAll();
+    await expect(d.router.setFee(101, evm.accounts[3]!)).rejects.toThrow(); // > MAX_FEE_BPS
+    await expect(asUser(d.router).setFee(10, evm.accounts[3]!)).rejects.toThrow(); // not owner
+  });
+});
+
 describe('BasketRouter — guards', () => {
   it('gates trading behind the user allowlist when enabled', async () => {
     const d = await deployAll();
