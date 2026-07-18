@@ -137,11 +137,21 @@ contract is standard Solidity and ports to Foundry unchanged. Run: `pnpm --filte
 2. **Router contract + tests** against mock ERC-20s and a mock DEX — ✅ done
    (buy / sell / rebalance + slippage, deadline, token-registry, allowlist, pause,
    owner-only, and reentrancy guards).
-3. **Wiring** (next): API endpoint that returns a plan for an index+action; web
-   buy/sell/rebalance flow on the index detail and builder pages (execute button inert
-   until addresses are configured).
+3. **Wiring** — ✅ done (preview). `POST /api/v1/indexes/:slug/plan` returns a real
+   buy/sell/rebalance plan (wraps `planTrades` with the index's live constituents +
+   prices) and surfaces the **0.1% fee** (`DEFAULT_TRADE_FEE_BPS` in `@chainscope/config`,
+   matching the on-chain `feeBps`). The index-detail page has a **Trade panel** (buy/sell)
+   that shows the plan — per-name swaps, fee, totals — with an **inert execute button**
+   (`executable: false`) until verified addresses are configured. Nothing is submitted.
 4. **External audit pass** (same loop as ChainScope), then a testnet dry-run.
 5. Only after that, and with counsel: real addresses + eligibility gating + live.
+
+## Fee
+
+A configurable trade fee (default **0.1%**, `DEFAULT_TRADE_FEE_BPS`) is charged in
+stablecoin by the router — skimmed on buy inputs and sell outputs, capped on-chain at
+`MAX_FEE_BPS` (1%) and set by the operator to a `feeRecipient`. Off by default. The API
+plan preview shows the fee so the UI figure matches what the contract would take.
 
 ## What stays deferred
 

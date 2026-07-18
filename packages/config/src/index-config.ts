@@ -19,6 +19,13 @@ export type IndexMethodology = (typeof INDEX_METHODOLOGIES)[number];
 /** Basis-point denominator: all index weights sum to exactly this. */
 export const WEIGHT_DENOMINATOR_BPS = 10_000;
 
+/**
+ * Default trade fee (basis points) for the buyable layer's BasketRouter — 0.1%.
+ * The on-chain fee is operator-set; this is the intended value and what the API's
+ * plan preview surfaces so the displayed fee matches the contract.
+ */
+export const DEFAULT_TRADE_FEE_BPS = 10;
+
 export interface IndexConstraints {
   /** Maximum single-constituent weight, basis points (default: no cap = 10000). */
   readonly maxWeightBps: number;

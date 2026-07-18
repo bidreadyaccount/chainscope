@@ -234,3 +234,45 @@ describe('GET /indexes/:slug/simulate', () => {
     expect(status).toBe(404);
   });
 });
+
+describe('POST /indexes/:slug/plan (buyable layer)', () => {
+  it('builds a cent-exact BUY plan with the 0.1% fee surfaced, execution off', async () => {
+    const { status, body } = await post('/api/v1/indexes/mag7/plan', {
+      action: 'BUY',
+      amountUsd: 1000,
+    });
+    expect(status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.action).toBe('BUY');
+    const trades = body.trades as Array<{ side: string; amountUsd: number }>;
+    expect(trades.length).toBeGreaterThan(0);
+    expect(trades.every((t) => t.side === 'BUY')).toBe(true);
+    const cents = trades.reduce((s, t) => s + Math.round(t.amountUsd * 100), 0);
+    expect(cents).toBe(1000 * 100); // fully invested, cent-exact
+    expect(body.feeBps).toBe(10);
+    expect(body.feeUsd).toBeCloseTo(1, 6); // 0.1% of $1000
+    expect(body.executable).toBe(false); // no verified addresses configured
+  });
+
+  it('requires holdings for a SELL plan (400)', async () => {
+    const { status } = await post('/api/v1/indexes/mag7/plan', { action: 'SELL' });
+    expect(status).toBe(400);
+  });
+
+  it('builds a SELL plan from supplied holdings', async () => {
+    const { status, body } = await post('/api/v1/indexes/mag7/plan', {
+      action: 'SELL',
+      holdings: [{ ticker: 'AAPL', qty: 5 }],
+    });
+    expect(status).toBe(200);
+    expect(body.action).toBe('SELL');
+    const trades = body.trades as Array<{ ticker: string; side: string }>;
+    expect(trades.every((t) => t.side === 'SELL')).toBe(true);
+    expect(trades.some((t) => t.ticker === 'AAPL')).toBe(true);
+  });
+
+  it('unknown index -> 404', async () => {
+    const { status } = await post('/api/v1/indexes/nope/plan', { action: 'BUY', amountUsd: 100 });
+    expect(status).toBe(404);
+  });
+});

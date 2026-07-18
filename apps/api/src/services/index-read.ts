@@ -10,6 +10,7 @@ import {
   ROBINHOOD_CHAIN_ID,
   type IndexMethodology,
   DEFAULT_INDEX_CONSTRAINTS,
+  DEFAULT_TRADE_FEE_BPS,
   WEIGHT_DENOMINATOR_BPS,
 } from '@chainscope/config';
 import {
@@ -19,6 +20,7 @@ import {
   computeWeights,
   buildManualWeights,
   simulateInvestment,
+  planTrades,
   type ConstituentInput,
   type ConstituentWeight,
   type ManualWeightInput,
@@ -31,6 +33,14 @@ export interface PreviewInput {
   methodology?: IndexMethodology;
   manualWeights?: Array<{ ticker: string; weight: number }>;
   maxWeightBps?: number;
+}
+
+export interface PlanRequest {
+  action: 'BUY' | 'SELL' | 'REBALANCE';
+  /** Cash to invest (BUY) or add (REBALANCE), USD. */
+  amountUsd?: number;
+  /** Current wallet holdings, for SELL/REBALANCE. */
+  holdings?: Array<{ ticker: string; qty: number }>;
 }
 
 export interface IndexListItem {
@@ -311,6 +321,82 @@ export class IndexReadService {
         takenAt: new Date(p.takenAt).toISOString(),
         valueUsd: p.valueUsd,
       })),
+    };
+  }
+
+  /**
+   * Preview a buy / sell / rebalance trade plan for an index (read-only). Wraps the
+   * pure trade planner with the index's current constituents + prices, and surfaces
+   * the 0.1% fee the on-chain router would charge. Nothing is executed — execution
+   * stays off until verified Robinhood Chain addresses are configured.
+   */
+  async plan(slug: string, input: PlanRequest): Promise<unknown | null> {
+    const idx = await this.prisma.index.findUnique({
+      where: { slug },
+      include: { constituents: { include: { stockToken: true } } },
+    });
+    if (!idx) return null;
+
+    const targets = idx.constituents.map((c) => ({
+      stockTokenId: c.stockTokenId,
+      ticker: c.stockToken.ticker,
+      weightBps: c.targetWeightBps,
+    }));
+    const prices: Record<string, number> = {};
+    for (const c of idx.constituents) {
+      if (c.stockToken.priceUsd !== null) prices[c.stockTokenId] = c.stockToken.priceUsd;
+    }
+    const idByTicker = new Map(idx.constituents.map((c) => [c.stockToken.ticker, c.stockTokenId]));
+    const holdings = (input.holdings ?? []).flatMap((h) => {
+      const id = idByTicker.get(h.ticker.toUpperCase());
+      return id ? [{ stockTokenId: id, ticker: h.ticker.toUpperCase(), qty: h.qty }] : [];
+    });
+
+    const plan = planTrades({
+      action: input.action,
+      holdings,
+      targets,
+      prices,
+      cashUsd: input.amountUsd,
+    });
+
+    const notionalUsd = input.action === 'SELL' ? plan.grossSellUsd : plan.grossBuyUsd;
+    const feeUsd = Math.round((notionalUsd * DEFAULT_TRADE_FEE_BPS) / 100) / 100; // bps → USD, 2dp
+    const byId = new Map(idx.constituents.map((c) => [c.stockTokenId, c.stockToken]));
+
+    return {
+      slug: idx.slug,
+      symbol: idx.symbol,
+      name: idx.name,
+      isDemo: idx.isDemo,
+      action: plan.action,
+      ok: plan.ok,
+      error: plan.error ?? null,
+      note: plan.note ?? null,
+      feeBps: DEFAULT_TRADE_FEE_BPS,
+      feeUsd,
+      notionalUsd,
+      grossBuyUsd: plan.grossBuyUsd,
+      grossSellUsd: plan.grossSellUsd,
+      netCashUsd: plan.netCashUsd,
+      investedUsd: plan.investedUsd,
+      slippageBps: plan.slippageBps,
+      trades: plan.trades.map((t) => ({
+        ticker: t.ticker,
+        side: t.side,
+        amountUsd: t.amountUsd,
+        estQty: t.estQty,
+        priceUsd: t.priceUsd,
+        minReceived: t.minReceived,
+        companyName: byId.get(t.stockTokenId)?.companyName ?? t.ticker,
+        colorTheme: byId.get(t.stockTokenId)?.colorTheme ?? null,
+      })),
+      excluded: plan.excluded,
+      targetUsd: plan.targetUsd,
+      // Analytics only: execution is off until verified addresses are configured.
+      executable: false,
+      executionDisabledReason:
+        'Preview only — execution is off until verified Robinhood Chain token/DEX/stablecoin addresses are configured.',
     };
   }
 

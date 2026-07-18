@@ -223,6 +223,8 @@ export const api = {
   previewIndex: (input: PreviewRequest) => post<IndexPreview>(`/api/v1/indexes/preview`, input),
   simulate: (slug: string, amount: number) =>
     get<SimulationResult>(`/api/v1/indexes/${slug}/simulate?amount=${amount}`),
+  plan: (slug: string, body: PlanRequest) =>
+    post<TradePlanResult>(`/api/v1/indexes/${slug}/plan`, body),
 };
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -294,6 +296,45 @@ export interface SimulationResult {
     colorTheme: string | null;
   }>;
   valueSeries: Array<{ takenAt: string; valueUsd: number }>;
+}
+
+export interface PlanRequest {
+  action: 'BUY' | 'SELL' | 'REBALANCE';
+  amountUsd?: number;
+  holdings?: Array<{ ticker: string; qty: number }>;
+}
+
+export interface TradePlanResult {
+  slug: string;
+  symbol: string;
+  name: string;
+  isDemo: boolean;
+  action: 'BUY' | 'SELL' | 'REBALANCE';
+  ok: boolean;
+  error: string | null;
+  note: string | null;
+  feeBps: number;
+  feeUsd: number;
+  notionalUsd: number;
+  grossBuyUsd: number;
+  grossSellUsd: number;
+  netCashUsd: number;
+  investedUsd: number;
+  slippageBps: number;
+  trades: Array<{
+    ticker: string;
+    side: 'BUY' | 'SELL';
+    amountUsd: number;
+    estQty: number;
+    priceUsd: number;
+    minReceived: number;
+    companyName: string;
+    colorTheme: string | null;
+  }>;
+  excluded: Array<{ ticker: string; reason: string }>;
+  targetUsd: Array<{ ticker: string; usd: number }>;
+  executable: boolean;
+  executionDisabledReason: string;
 }
 
 export interface IndexListItem {

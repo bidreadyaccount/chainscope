@@ -74,6 +74,35 @@ const simulateQuery = z.object({
   amount: z.coerce.number().finite().min(0.01).max(1_000_000_000),
 });
 
+// Trade-plan preview input (buyable layer). BUY needs an amount; SELL/REBALANCE need
+// the current holdings. Tickers are canonicalized the same way as the builder.
+const planBody = z
+  .object({
+    action: z.enum(['BUY', 'SELL', 'REBALANCE']),
+    amountUsd: z.number().finite().positive().max(1_000_000_000).optional(),
+    holdings: z
+      .array(z.object({ ticker: tickerSchema, qty: z.number().finite().nonnegative() }))
+      .max(200)
+      .optional(),
+  })
+  .strict()
+  .superRefine((b, ctx) => {
+    if (b.action === 'BUY' && (b.amountUsd === undefined || b.amountUsd <= 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['amountUsd'],
+        message: 'amountUsd is required for a BUY plan',
+      });
+    }
+    if ((b.action === 'SELL' || b.action === 'REBALANCE') && (b.holdings?.length ?? 0) === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['holdings'],
+        message: 'holdings are required for a SELL or REBALANCE plan',
+      });
+    }
+  });
+
 export const indexRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     '/indexes',
@@ -119,6 +148,19 @@ export const indexRoutes: FastifyPluginAsync = async (app) => {
       const sim = await app.services.indexes.simulate(slug, amount);
       if (!sim) throw notFound(`Index ${slug} not found`);
       return sim;
+    },
+  );
+
+  // Trade-plan preview for the buyable layer — read-only, no order is placed.
+  app.post(
+    '/indexes/:slug/plan',
+    { schema: { tags: ['indexes'], summary: 'Preview a buy/sell/rebalance trade plan (read-only)' } },
+    async (req) => {
+      const { slug } = parseOrThrow(slugParam, req.params, 'params');
+      const body = parseOrThrow(planBody, req.body, 'body');
+      const plan = await app.services.indexes.plan(slug, body);
+      if (!plan) throw notFound(`Index ${slug} not found`);
+      return plan;
     },
   );
 

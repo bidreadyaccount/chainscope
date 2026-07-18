@@ -14,6 +14,7 @@ import { pct, usd } from '@/lib/format';
 import { Badge, Card, ErrorState, FlowText, Hint, Skeleton } from '@/components/ui';
 import { IndexNavChart } from '@/components/index-nav-chart';
 import { Simulator } from '@/components/simulator';
+import { TradePanel } from '@/components/trade-panel';
 
 const bpsToPct = (bps: number): string => `${(bps / 100).toFixed(1)}%`;
 
@@ -184,6 +185,7 @@ export default function IndexDetailPage({ params }: { params: Promise<{ slug: st
       </div>
 
       <Simulator slug={idx.slug} />
+      <TradePanel slug={idx.slug} constituents={idx.constituents} />
     </div>
   );
 }
